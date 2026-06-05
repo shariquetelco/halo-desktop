@@ -1,0 +1,406 @@
+/* ─────────────────────────────────────────
+   HALO — style.css
+   Premium. Minimal. Memorable.
+   Color is memory. Identity is instant.
+───────────────────────────────────────── */
+
+/* ── Variables ── */
+:root {
+  /* App Shell */
+  --background:        #0f0f0f;
+  --sidebar-bg:        #1a1a1a;
+  --border:            #2a2a2a;
+  --text:              #eeeeee;
+  --text-subtle:       #888888;
+  --text-dim:          #555555;
+
+  /* HALO Brand */
+  --accent:            #6e56cf;
+  --accent-hover:      #7c68d4;
+  --accent-glow:       rgba(110, 86, 207, 0.2);
+
+  /* Folder Identity Colors */
+  --folder-purple:     #6e56cf;
+  --folder-blue:       #2563eb;
+  --folder-dark-blue:  #1e3a5f;
+  --folder-green:      #16a34a;
+  --folder-orange:     #ea580c;
+  --folder-gold:       #ca8a04;
+  --folder-pink:       #db2777;
+  --folder-red:        #dc2626;
+  --folder-cyan:       #0891b2;
+  --folder-gray:       #6b7280;
+
+  /* Active Folder Color (updated dynamically) */
+  --folder-active:     #6e56cf;
+
+  /* Surfaces */
+  --card-bg:           #1e1e1e;
+  --card-shadow:       0 4px 24px rgba(0, 0, 0, 0.4);
+  --card-border:       #2a2a2a;
+
+  /* Transitions */
+  --transition-fast:   100ms ease;
+  --transition-smooth: 150ms ease;
+  --transition-color:  200ms ease;
+}
+
+/* ── Reset ── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: var(--background);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── App Shell ── */
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+#header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--sidebar-bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+#header-logo {
+  font-size: 18px;
+}
+
+#header-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+#header-tagline {
+  font-size: 12px;
+  color: var(--text-subtle);
+  margin-left: 4px;
+}
+
+/* ── Layout ── */
+#layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 220px;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 12px;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+
+/* ── Add Folder Button ── */
+#add-folder-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-smooth),
+              box-shadow var(--transition-smooth);
+  text-align: left;
+}
+
+#add-folder-btn:hover {
+  background: var(--accent-hover);
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+/* ── Folder List ── */
+#folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+#folder-list-empty {
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 8px 4px;
+}
+
+/* ── Folder List Item ── */
+.folder-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background var(--transition-smooth),
+              transform var(--transition-fast);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.folder-item:hover {
+  background: var(--border);
+  transform: translateX(2px);
+}
+
+.folder-item.active {
+  background: rgba(110, 86, 207, 0.15);
+  border: 1px solid rgba(110, 86, 207, 0.3);
+}
+
+/* ── Sidebar Icon Background (Layer 1 — Recognition) ── */
+.folder-item-icon-wrap {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+  transition: background var(--transition-color);
+}
+
+.folder-item-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Workspace ── */
+#workspace {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--background);
+  position: relative;
+}
+
+/* ── Empty State ── */
+#empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 12px;
+  text-align: center;
+  padding: 32px;
+}
+
+#empty-icon {
+  font-size: 48px;
+  opacity: 0.3;
+}
+
+#empty-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+#empty-subtitle {
+  font-size: 14px;
+  color: var(--text-subtle);
+}
+
+/* ── Hidden Utility ── */
+.hidden {
+  display: none !important;
+}
+
+/* ── Identity View ── */
+#identity-view {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  position: relative;
+}
+
+/* ── Atmosphere Gradient (Layer 3) ── */
+#identity-atmosphere {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  pointer-events: none;
+  transition: background var(--transition-color);
+  z-index: 0;
+}
+
+/* ── Identity Content ── */
+#identity-content {
+  position: relative;
+  z-index: 1;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Identity Header ── */
+#identity-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* ── Identity Icon (Layer 2 — Focus) ── */
+#identity-icon-wrapper {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+  transition: background var(--transition-color),
+              box-shadow var(--transition-color);
+}
+
+#identity-icon {
+  font-size: 36px;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+#identity-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#identity-name {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+#identity-category {
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+
+/* ── Identity Description ── */
+#identity-description {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#description-text {
+  font-size: 14px;
+  color: var(--text-subtle);
+  font-style: italic;
+}
+
+#add-description-btn {
+  background: none;
+  border: 1px dashed var(--border);
+  color: var(--text-subtle);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--transition-smooth),
+              color var(--transition-smooth);
+  text-align: left;
+}
+
+#add-description-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Identity Stats ── */
+#identity-stats {
+  display: flex;
+  gap: 16px;
+}
+
+.stat {
+  flex: 1;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: var(--card-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+/* ── Identity Controls ── */
+#identity-controls {
+  display: flex;
+  gap: 10px;
+}
+
+.control-btn {
+  padding: 10px 18px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color var(--transition-smooth),
+              color var(--transition-smooth),
+              box-shadow var(--transition-smooth);
+}
+
+.control-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}

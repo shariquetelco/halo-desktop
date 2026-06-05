@@ -1,43 +1,104 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="/src/styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Tauri App</title>
-    <script type="module" src="/src/main.ts" defer></script>
+    <title>HALO</title>
+    <link rel="stylesheet" href="/src/style.css" />
   </head>
-
   <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
 
-      <div class="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/src/assets/vite.svg" class="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img
-            src="/src/assets/tauri.svg"
-            class="logo tauri"
-            alt="Tauri logo"
-          />
-        </a>
-        <a href="https://www.typescriptlang.org/docs" target="_blank">
-          <img
-            src="/src/assets/typescript.svg"
-            class="logo typescript"
-            alt="typescript logo"
-          />
-        </a>
+    <!-- App Shell -->
+    <div id="app">
+
+      <!-- Header -->
+      <header id="header">
+        <span id="header-logo">🌟</span>
+        <span id="header-title">HALO</span>
+        <span id="header-tagline">Give every folder an identity.</span>
+      </header>
+
+      <!-- Main Layout -->
+      <div id="layout">
+
+        <!-- Sidebar -->
+        <aside id="sidebar">
+
+          <!-- Add Folder Button -->
+          <button id="add-folder-btn">+ Add Folder</button>
+
+          <!-- Folder List -->
+          <div id="folder-list">
+            <p id="folder-list-empty">No folders added yet.</p>
+          </div>
+
+        </aside>
+
+        <!-- Workspace -->
+        <main id="workspace">
+
+          <!-- Atmosphere Layer -->
+          <div id="identity-atmosphere"></div>
+
+          <!-- Empty State -->
+          <div id="empty-state">
+            <div id="empty-icon">📁</div>
+            <h2 id="empty-title">Give your first folder an identity.</h2>
+            <p id="empty-subtitle">Click "Add Folder" to get started.</p>
+          </div>
+
+          <!-- Folder Identity View -->
+          <div id="identity-view" class="hidden">
+            <div id="identity-content">
+
+              <!-- Folder Header -->
+              <div id="identity-header">
+                <div id="identity-icon-wrapper">
+                  <span id="identity-icon">📁</span>
+                </div>
+                <div id="identity-titles">
+                  <h1 id="identity-name">Folder Name</h1>
+                  <p id="identity-category">Category</p>
+                </div>
+              </div>
+
+              <!-- Folder Description -->
+              <div id="identity-description">
+                <p id="description-text">No description yet.</p>
+                <button id="add-description-btn">+ Add Description</button>
+              </div>
+
+              <!-- Folder Stats -->
+              <div id="identity-stats">
+                <div class="stat">
+                  <span class="stat-label">Files</span>
+                  <span class="stat-value" id="stat-files">—</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Folders</span>
+                  <span class="stat-value" id="stat-folders">—</span>
+                </div>
+                <div class="stat">
+                  <span class="stat-label">Last Modified</span>
+                  <span class="stat-value" id="stat-modified">—</span>
+                </div>
+              </div>
+
+              <!-- Identity Controls -->
+              <div id="identity-controls">
+                <button class="control-btn" id="change-icon-btn">Change Icon</button>
+                <button class="control-btn" id="change-color-btn">Change Color</button>
+              </div>
+
+            </div>
+          </div>
+
+        </main>
+
       </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
-    </main>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

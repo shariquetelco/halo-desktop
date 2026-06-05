@@ -1,10 +1,18 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Capability for the main window",
+  "description": "Default permissions for HALO",
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "dialog:allow-open",
+    "fs:allow-read-dir",
+    "fs:allow-exists",
+    "fs:allow-read-text-file",
+    "fs:allow-write-text-file",
+    "fs:allow-mkdir",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    "fs:scope-appdata-recursive"
   ]
 }
