@@ -1,10 +1,25 @@
 # HALO
 
-> A memory layer for your files.
+> Give every folder an identity.
 
-HALO is a lightweight desktop app that automatically gives folders identity, context, and memory.
+HALO helps people instantly recognize, understand, and reconnect
+with their folders by adding visual identity, context, and memory
+to the file system.
 
-Instead of generic folders, you instantly see what a folder is, why it exists, and what matters inside it.
+Instead of generic folders, HALO provides:
+
+- Smart icons
+- Smart colors
+- Folder summaries
+- Context and purpose
+- Relationships between folders
+
+Whether it's Taxes, Downloads, Vacation Photos, MBA Applications,
+or a complex work project, HALO helps users understand what matters
+without digging through files.
+
+Your folders already store your work.
+HALO helps them tell their story.
 
 ## What it does
 
@@ -13,11 +28,13 @@ Instead of generic folders, you instantly see what a folder is, why it exists, a
 - Shows a context card when you hover over a folder
 - Connects related folders and projects
 
-## Example
+## Examples
 
-SATURN → 🛰️ Purple → ESA Satellite Resilience Project
-NOVASEC → 🔒 Red → 5G Security Research
-MBA → 🎓 Gold → MBA Application Materials
+- Taxes          → 📄 Blue    → 18 PDFs, tax returns 2022–2025
+- Vacation 2025  → 🌴 Green   → Photos, tickets, hotel bookings
+- Downloads      → 📥 Gray    → Mixed files, last updated today
+- SATURN         → 🛰️ Purple  → ESA Satellite Resilience Project
+- MBA            → 🎓 Gold    → Applications, essays, deadlines
 
 ## Principles
 
@@ -25,10 +42,11 @@ MBA → 🎓 Gold → MBA Application Materials
 - Privacy first — no cloud, no login
 - No AI chat — context surfaces automatically
 - Minimal friction — works in the background
+- Generic by design — works for any folder, any user
 
 ## Status
 
-🚧 In active development — Session 1
+🚧 In active development — Day 2 complete
 
 ## Tech Stack
 
