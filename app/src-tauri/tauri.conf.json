@@ -14,8 +14,25 @@
     "windows": [
       {
         "title": "halo",
-        "width": 800,
-        "height": 600
+        "width": 1100,
+        "height": 700,
+        "minWidth": 900,
+        "minHeight": 600
+      },
+      {
+        "label": "search-overlay",
+        "title": "HALO Search",
+        "url": "search-overlay.html",
+        "width": 660,
+        "height": 420,
+        "resizable": false,
+        "visible": false,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "center": true,
+        "skipTaskbar": true,
+        "shadow": true,
+        "focus": true
       }
     ],
     "security": {

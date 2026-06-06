@@ -11,6 +11,7 @@ use std::sync::{Arc, Mutex};
 use rusqlite::{Connection, params};
 use walkdir::WalkDir;
 use tauri::Emitter;
+use tauri::Manager;
 
 // ── Global DB mutex for thread safety ──
 static DB_MUTEX: std::sync::OnceLock<Arc<Mutex<()>>> = std::sync::OnceLock::new();
@@ -614,11 +615,73 @@ fn get_largest_files(limit: Option<i64>) -> Result<Vec<serde_json::Value>, Strin
     Ok(results)
 }
 
+// ── Show main window ──
+#[tauri::command]
+fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+    }
+    Ok(())
+}
+
+// ── Show/hide search overlay ──
+#[tauri::command]
+fn show_search_overlay(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(overlay) = app.get_webview_window("search-overlay") {
+        let _ = overlay.show();
+        let _ = overlay.set_focus();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn hide_search_overlay(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(overlay) = app.get_webview_window("search-overlay") {
+        let _ = overlay.hide();
+    }
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Track last Command key press time for double-tap detection
+    let last_cmd_press: Arc<Mutex<Option<std::time::Instant>>> =
+        Arc::new(Mutex::new(None));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_global_shortcut::Builder::new()
+            .with_handler(move |app, shortcut, event| {
+                use tauri_plugin_global_shortcut::ShortcutState;
+                if event.state() != ShortcutState::Pressed {
+                    return;
+                }
+
+                let shortcut_str = shortcut.to_string();
+
+                // Detect double-tap on Meta (Command) key
+                // Toggle overlay on ⌘+Shift+Space
+                if shortcut_str.contains("Space") {
+                    if let Some(overlay) = app.get_webview_window("search-overlay") {
+                        let visible = overlay.is_visible().unwrap_or(false);
+                        if visible {
+                            let _ = overlay.hide();
+                        } else {
+                            let _ = overlay.show();
+                            let _ = overlay.set_focus();
+                        }
+                    }
+                }
+            })
+            .build()
+        )
+        .setup(|app| {
+            use tauri_plugin_global_shortcut::GlobalShortcutExt;
+            app.global_shortcut().register("Alt+Space")?;
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             apply_folder_icon,
             index_folder,
@@ -628,6 +691,9 @@ pub fn run() {
             reveal_in_finder,
             vacuum_db,
             get_largest_files,
+            show_search_overlay,
+            hide_search_overlay,
+            show_main_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running HALO");
