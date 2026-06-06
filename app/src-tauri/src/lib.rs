@@ -263,6 +263,45 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
                     }
                     _ => continue,
                 }
+            } else if ext == "docx" {
+                let extractor = assets_dir().join("extract-docx.swift");
+                let output = Command::new("swift")
+                    .arg(&extractor)
+                    .arg(file_path)
+                    .output();
+
+                match output {
+                    Ok(o) if o.status.success() => {
+                        String::from_utf8_lossy(&o.stdout).to_string()
+                    }
+                    _ => continue,
+                }
+            } else if ext == "pptx" {
+                let extractor = assets_dir().join("extract-pptx.swift");
+                let output = Command::new("swift")
+                    .arg(&extractor)
+                    .arg(file_path)
+                    .output();
+
+                match output {
+                    Ok(o) if o.status.success() => {
+                        String::from_utf8_lossy(&o.stdout).to_string()
+                    }
+                    _ => continue,
+                }
+            } else if ext == "xlsx" {
+                let extractor = assets_dir().join("extract-xlsx.swift");
+                let output = Command::new("swift")
+                    .arg(&extractor)
+                    .arg(file_path)
+                    .output();
+
+                match output {
+                    Ok(o) if o.status.success() => {
+                        String::from_utf8_lossy(&o.stdout).to_string()
+                    }
+                    _ => continue,
+                }
             } else {
                 match std::fs::read_to_string(file_path) {
                     Ok(c)  => c,
@@ -411,11 +450,30 @@ fn get_index_stats() -> Result<serde_json::Value, String> {
         |row| row.get(0),
     ).unwrap_or(0);
 
-    // Count PDFs separately
+    // Count by file type
     let pdf_count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM indexed_files WHERE extension = 'pdf'",
-        [],
-        |row| row.get(0),
+        [], |row| row.get(0),
+    ).unwrap_or(0);
+
+    let docx_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM indexed_files WHERE extension = 'docx'",
+        [], |row| row.get(0),
+    ).unwrap_or(0);
+
+    let pptx_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM indexed_files WHERE extension = 'pptx'",
+        [], |row| row.get(0),
+    ).unwrap_or(0);
+
+    let xlsx_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM indexed_files WHERE extension = 'xlsx'",
+        [], |row| row.get(0),
+    ).unwrap_or(0);
+
+    let text_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM indexed_files WHERE extension IN ('txt','md','markdown','csv','json','xml','yaml','toml','ts','js','py','rs','swift')",
+        [], |row| row.get(0),
     ).unwrap_or(0);
 
     // Get DB size
@@ -426,9 +484,13 @@ fn get_index_stats() -> Result<serde_json::Value, String> {
     let db_size_mb = db_size / 1_048_576;
 
     Ok(serde_json::json!({
-        "files":     file_count,
-        "folders":   folder_count,
-        "pdfs":      pdf_count,
+        "files":      file_count,
+        "folders":    folder_count,
+        "pdfs":       pdf_count,
+        "docx":       docx_count,
+        "pptx":       pptx_count,
+        "xlsx":       xlsx_count,
+        "text":       text_count,
         "db_size_mb": db_size_mb,
     }))
 }

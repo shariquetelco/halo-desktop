@@ -44,20 +44,28 @@
       <!-- Index Dropdown -->
       <div id="index-dropdown" class="hidden">
         <div class="index-stat-row">
-          <span class="index-stat-label">Indexed files</span>
-          <span class="index-stat-value">
-            <span id="stat-indexed-files">—</span>
-            <span style="color:var(--text-dim);font-weight:400"> / </span>
-            <span id="stat-total-files" style="color:var(--text-dim);font-weight:400">—</span>
-          </span>
+          <span class="index-stat-label">Files Indexed</span>
+          <span class="index-stat-value"><span id="stat-indexed-files">—</span></span>
         </div>
         <div class="index-stat-row">
-          <span class="index-stat-label">Indexed folders</span>
-          <span class="index-stat-value">
-            <span id="stat-indexed-folders">—</span>
-            <span style="color:var(--text-dim);font-weight:400"> / </span>
-            <span id="stat-total-folders" style="color:var(--text-dim);font-weight:400">—</span>
-          </span>
+          <span class="index-stat-label">Folders Indexed</span>
+          <span class="index-stat-value"><span id="stat-indexed-folders">—</span></span>
+        </div>
+        <div class="index-stat-row">
+          <span class="index-stat-label">Database Size</span>
+          <span class="index-stat-value"><span id="stat-db-size">—</span></span>
+        </div>
+        <div class="index-divider"></div>
+        <div class="coverage-toggle-row">
+          <span class="index-stat-label">Search Coverage</span>
+          <button id="coverage-toggle-btn">View ▾</button>
+        </div>
+        <div id="coverage-panel" class="hidden">
+          <div class="coverage-row"><span class="coverage-icon">📄</span><span class="coverage-label">PDF</span><span class="coverage-count" id="cov-pdf">—</span></div>
+          <div class="coverage-row"><span class="coverage-icon">📝</span><span class="coverage-label">DOCX</span><span class="coverage-count" id="cov-docx">—</span></div>
+          <div class="coverage-row"><span class="coverage-icon">📽</span><span class="coverage-label">PPTX</span><span class="coverage-count" id="cov-pptx">—</span></div>
+          <div class="coverage-row"><span class="coverage-icon">📊</span><span class="coverage-label">XLSX</span><span class="coverage-count" id="cov-xlsx">—</span></div>
+          <div class="coverage-row"><span class="coverage-icon">📃</span><span class="coverage-label">Text</span><span class="coverage-count" id="cov-text">—</span></div>
         </div>
         <div class="index-divider"></div>
         <div class="index-setting">
@@ -102,6 +110,14 @@
           <div id="search-results-view" class="hidden">
             <div id="search-results-header">
               <span id="search-results-count"></span>
+            </div>
+            <div id="filter-pills">
+              <button class="filter-pill active" data-type="all">✦ All <span class="pill-count">0</span></button>
+              <button class="filter-pill" data-type="pdf">📄 PDF <span class="pill-count">0</span></button>
+              <button class="filter-pill" data-type="docx">📝 DOCX <span class="pill-count">0</span></button>
+              <button class="filter-pill" data-type="pptx">📽 PPTX <span class="pill-count">0</span></button>
+              <button class="filter-pill" data-type="xlsx">📊 XLSX <span class="pill-count">0</span></button>
+              <button class="filter-pill" data-type="text">📃 Text <span class="pill-count">0</span></button>
             </div>
             <div id="search-results-list"></div>
           </div>

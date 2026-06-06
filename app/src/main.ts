@@ -1272,7 +1272,10 @@ searchInput.addEventListener("input", () => {
     invoke<any[]>("search_files", { query, limit: 30 })
       .then(results => {
         const elapsed = (performance.now() - start) / 1000;
-        renderSearchResults(results, query, elapsed);
+        lastResults = results;
+        lastQuery   = query;
+        lastElapsed = elapsed;
+        applyFilter();
       })
       .catch(err => {
         console.error("Search error:", err);
@@ -1299,6 +1302,25 @@ indexBtn.addEventListener("click", async (e) => {
       const stats = await invoke<any>("get_index_stats", {});
       statIndexedFiles.textContent   = stats.files.toLocaleString();
       statIndexedFolders.textContent = stats.folders.toString();
+
+      // DB size
+      const dbSizeEl = document.getElementById("stat-db-size");
+      if (dbSizeEl) dbSizeEl.textContent = `${stats.db_size_mb} MB`;
+
+      // Coverage panel counts
+      const covPdf  = document.getElementById("cov-pdf");
+      const covDocx = document.getElementById("cov-docx");
+      const covPptx = document.getElementById("cov-pptx");
+      const covXlsx = document.getElementById("cov-xlsx");
+      const covText = document.getElementById("cov-text");
+      if (covPdf)  covPdf.textContent  = stats.pdfs.toString();
+      if (covDocx) covDocx.textContent = stats.docx.toString();
+      if (covPptx) covPptx.textContent = stats.pptx.toString();
+      if (covXlsx) covXlsx.textContent = stats.xlsx.toString();
+      if (covText) covText.textContent = stats.text.toString();
+
+      // Update pill counts
+      updatePillCounts(stats);
     } catch (err) {
       console.error("Stats error:", err);
     }
@@ -1371,14 +1393,80 @@ reindexBtn.addEventListener("click", async () => {
 });
 
 // ── Auto-index when folder is added ──
-// Called after addFolder() saves a record
-async function autoIndexFolder(folderPath: string): Promise<void> {
-  try {
-    await invoke("index_folder", { folderPath });
-  } catch (err) {
-    console.error("Auto-index error:", err);
-  }
+// TODO: wire up after Day 15 FSEvents implementation
+
+// ── Filter pills ──
+let activeFilter = "all";
+let lastResults: any[] = [];
+let lastQuery   = "";
+let lastElapsed = 0;
+
+document.querySelectorAll('.filter-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    const type = (pill as HTMLElement).dataset.type || 'all';
+    activeFilter = type;
+
+    document.querySelectorAll('.filter-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+
+    applyFilter();
+  });
+});
+
+function applyFilter(): void {
+  const filtered = activeFilter === 'all'
+    ? lastResults
+    : lastResults.filter(r => {
+        if (activeFilter === 'text') {
+          return !['pdf','docx','pptx','xlsx'].includes(r.extension);
+        }
+        return r.extension === activeFilter;
+      });
+
+  // Update pill counts to reflect current results
+  const counts: Record<string, number> = { all: lastResults.length, pdf: 0, docx: 0, pptx: 0, xlsx: 0, text: 0 };
+  lastResults.forEach(r => {
+    if (['pdf','docx','pptx','xlsx'].includes(r.extension)) {
+      counts[r.extension] = (counts[r.extension] || 0) + 1;
+    } else {
+      counts['text'] = (counts['text'] || 0) + 1;
+    }
+  });
+
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    const btn     = pill as HTMLButtonElement;
+    const type    = btn.dataset.type || 'all';
+    const count   = counts[type] ?? 0;
+    const countEl = btn.querySelector('.pill-count') as HTMLElement;
+
+    if (countEl) countEl.textContent = count.toString();
+
+    if (type !== 'all' && count === 0) {
+      btn.disabled = true;
+      btn.style.opacity = '0.3';
+      btn.style.cursor  = 'not-allowed';
+    } else {
+      btn.disabled = false;
+      btn.style.opacity = '1';
+      btn.style.cursor  = 'pointer';
+    }
+  });
+
+  renderSearchResults(filtered, lastQuery, lastElapsed);
 }
+
+// ── Coverage toggle ──
+const coverageToggleBtn = document.getElementById("coverage-toggle-btn");
+const coveragePanel     = document.getElementById("coverage-panel");
+let coverageOpen = false;
+
+coverageToggleBtn?.addEventListener("click", () => {
+  coverageOpen = !coverageOpen;
+  coveragePanel?.classList.toggle("hidden", !coverageOpen);
+  if (coverageToggleBtn) {
+    coverageToggleBtn.textContent = coverageOpen ? "Hide ▴" : "View ▾";
+  }
+});
 
 // ── Start ──
 init();
@@ -1393,10 +1481,35 @@ async function updateSearchPlaceholder(): Promise<void> {
       statIndexedFiles.textContent   = formatted;
       statIndexedFolders.textContent = stats.folders.toString();
     }
-    // Show total folders tracked
-    const totalFolders = document.getElementById("stat-total-folders");
-    const totalFiles   = document.getElementById("stat-total-files");
-    if (totalFolders) totalFolders.textContent = folders.length.toString();
-    if (totalFiles)   totalFiles.textContent   = "all text files";
+    updatePillCounts(stats);
   } catch {}
+}
+
+// ── Update pill counts from stats ──
+function updatePillCounts(stats: any): void {
+  const pillAll  = document.querySelector('.filter-pill[data-type="all"]  .pill-count') as HTMLElement;
+  const pillPdf  = document.querySelector('.filter-pill[data-type="pdf"]  .pill-count') as HTMLElement;
+  const pillDocx = document.querySelector('.filter-pill[data-type="docx"] .pill-count') as HTMLElement;
+  const pillPptx = document.querySelector('.filter-pill[data-type="pptx"] .pill-count') as HTMLElement;
+  const pillXlsx = document.querySelector('.filter-pill[data-type="xlsx"] .pill-count') as HTMLElement;
+  const pillText = document.querySelector('.filter-pill[data-type="text"] .pill-count') as HTMLElement;
+
+  if (pillAll)  pillAll.textContent  = stats.files.toString();
+  if (pillPdf)  pillPdf.textContent  = stats.pdfs.toString();
+  if (pillDocx) pillDocx.textContent = stats.docx.toString();
+  if (pillPptx) pillPptx.textContent = stats.pptx.toString();
+  if (pillXlsx) pillXlsx.textContent = stats.xlsx.toString();
+  if (pillText) pillText.textContent = stats.text.toString();
+
+  // Disable zero-count pills
+  document.querySelectorAll('.filter-pill').forEach(pill => {
+    const btn   = pill as HTMLButtonElement;
+    const count = parseInt(btn.querySelector('.pill-count')?.textContent || '0');
+    const type  = btn.dataset.type;
+    if (type !== 'all' && count === 0) {
+      btn.disabled = true;
+    } else {
+      btn.disabled = false;
+    }
+  });
 }
