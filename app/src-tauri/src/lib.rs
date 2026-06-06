@@ -12,6 +12,9 @@ use rusqlite::{Connection, params};
 use walkdir::WalkDir;
 use tauri::Emitter;
 use tauri::Manager;
+use notify::{Watcher, RecursiveMode, recommended_watcher, Event, EventKind};
+use std::collections::HashMap;
+use std::time::Duration;
 
 // ── Global DB mutex for thread safety ──
 static DB_MUTEX: std::sync::OnceLock<Arc<Mutex<()>>> = std::sync::OnceLock::new();
@@ -615,6 +618,213 @@ fn get_largest_files(limit: Option<i64>) -> Result<Vec<serde_json::Value>, Strin
     Ok(results)
 }
 
+// ── File watcher ──
+#[tauri::command]
+fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(), String> {
+    std::thread::spawn(move || {
+        // Pending events: path → event kind
+        let pending: Arc<Mutex<HashMap<String, String>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+
+        let pending_clone = pending.clone();
+        let app_clone     = app.clone();
+
+        let mut watcher = recommended_watcher(move |res: Result<Event, _>| {
+            let event = match res {
+                Ok(e)  => e,
+                Err(_) => return,
+            };
+
+            let kind = match event.kind {
+                EventKind::Create(_) => "created",
+                EventKind::Modify(_) => "modified",
+                EventKind::Remove(_) => "deleted",
+                _ => return,
+            };
+
+            for path in &event.paths {
+                let path_str = path.to_string_lossy().to_string();
+
+                // Skip excluded dirs and files
+                let skip = path.components().any(|c| {
+                    let name = c.as_os_str().to_str().unwrap_or("");
+                    should_skip_dir(name)
+                });
+                if skip { continue; }
+
+                let ext = path.extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+
+                // For create/modify: only index known types
+                if kind != "deleted" && !is_indexable(&ext) {
+                    continue;
+                }
+
+                let mut map = pending_clone.lock().unwrap();
+                map.insert(path_str, kind.to_string());
+            }
+        }).expect("Failed to create watcher");
+
+        // Watch all tracked folders
+        for folder in &folders {
+            let _ = watcher.watch(
+                std::path::Path::new(folder),
+                RecursiveMode::Recursive,
+            );
+        }
+
+        let _ = app.emit("watcher-status", serde_json::json!({
+            "status": "watching",
+            "folders": folders.len()
+        }));
+
+        // Debounce loop — process pending every 3 seconds
+        loop {
+            std::thread::sleep(Duration::from_secs(3));
+
+            let batch: HashMap<String, String> = {
+                let mut map = pending.lock().unwrap();
+                if map.is_empty() { continue; }
+                let snapshot = map.clone();
+                map.clear();
+                snapshot
+            };
+
+            let _ = app_clone.emit("watcher-status", serde_json::json!({
+                "status": "updating",
+                "count": batch.len()
+            }));
+
+            let conn = match open_db() {
+                Ok(c)  => c,
+                Err(_) => continue,
+            };
+
+            let mut activity: Vec<serde_json::Value> = Vec::new();
+
+            for (path_str, kind) in &batch {
+                let path = std::path::Path::new(path_str);
+
+                if kind == "deleted" {
+                    let _ = conn.execute(
+                        "DELETE FROM indexed_files WHERE path = ?1",
+                        params![path_str],
+                    );
+                    let _ = conn.execute(
+                        "DELETE FROM file_content WHERE path = ?1",
+                        params![path_str],
+                    );
+                    activity.push(serde_json::json!({
+                        "path": path_str,
+                        "action": "removed"
+                    }));
+                    continue;
+                }
+
+                // created or modified — re-index
+                let ext = path.extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+
+                if !is_indexable(&ext) { continue; }
+
+                let content = if ext == "pdf" {
+                    let extractor = assets_dir().join("extract-pdf.swift");
+                    match std::process::Command::new("swift")
+                        .arg(&extractor).arg(path).output() {
+                        Ok(o) if o.status.success() =>
+                            String::from_utf8_lossy(&o.stdout).to_string(),
+                        _ => continue,
+                    }
+                } else if ext == "docx" {
+                    let extractor = assets_dir().join("extract-docx.swift");
+                    match std::process::Command::new("swift")
+                        .arg(&extractor).arg(path).output() {
+                        Ok(o) if o.status.success() =>
+                            String::from_utf8_lossy(&o.stdout).to_string(),
+                        _ => continue,
+                    }
+                } else if ext == "pptx" {
+                    let extractor = assets_dir().join("extract-pptx.swift");
+                    match std::process::Command::new("swift")
+                        .arg(&extractor).arg(path).output() {
+                        Ok(o) if o.status.success() =>
+                            String::from_utf8_lossy(&o.stdout).to_string(),
+                        _ => continue,
+                    }
+                } else if ext == "xlsx" {
+                    let extractor = assets_dir().join("extract-xlsx.swift");
+                    match std::process::Command::new("swift")
+                        .arg(&extractor).arg(path).output() {
+                        Ok(o) if o.status.success() =>
+                            String::from_utf8_lossy(&o.stdout).to_string(),
+                        _ => continue,
+                    }
+                } else {
+                    match std::fs::read_to_string(path) {
+                        Ok(c)  => c,
+                        Err(_) => continue,
+                    }
+                };
+
+                if content.trim().is_empty() { continue; }
+
+                let limit   = max_content_bytes(&ext, content.len());
+                let content = if content.len() > limit {
+                    content[..limit].to_string()
+                } else { content };
+
+                let name = path.file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                let folder = path.parent()
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_default();
+
+                let modified = std::fs::metadata(path)
+                    .ok()
+                    .and_then(|m| m.modified().ok())
+                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                    .map(|d| d.as_secs() as i64)
+                    .unwrap_or(0);
+
+                let _ = conn.execute(
+                    "INSERT OR REPLACE INTO indexed_files
+                     (path, name, folder, extension, modified)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![path_str, name, folder, ext, modified],
+                );
+                let _ = conn.execute(
+                    "DELETE FROM file_content WHERE path = ?1",
+                    params![path_str],
+                );
+                let _ = conn.execute(
+                    "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
+                    params![path_str, content],
+                );
+
+                activity.push(serde_json::json!({
+                    "path": path_str,
+                    "name": name,
+                    "action": kind
+                }));
+            }
+
+            let _ = app_clone.emit("watcher-activity", activity);
+            let _ = app_clone.emit("watcher-status", serde_json::json!({
+                "status": "idle"
+            }));
+        }
+    });
+
+    Ok(())
+}
+
 // ── Show main window ──
 #[tauri::command]
 fn show_main_window(app: tauri::AppHandle) -> Result<(), String> {
@@ -694,6 +904,7 @@ pub fn run() {
             show_search_overlay,
             hide_search_overlay,
             show_main_window,
+            start_file_watcher,
         ])
         .run(tauri::generate_context!())
         .expect("error while running HALO");

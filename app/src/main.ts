@@ -1468,8 +1468,72 @@ coverageToggleBtn?.addEventListener("click", () => {
   }
 });
 
+// ── Start file watcher ──
+async function startFileWatcher(): Promise<void> {
+  try {
+    const paths = folders.map(f => f.path);
+    if (paths.length === 0) return;
+    await invoke("start_file_watcher", { folders: paths });
+  } catch (err) {
+    console.error("Watcher error:", err);
+  }
+}
+
+// ── Watcher status indicator ──
+async function setupWatcherEvents(): Promise<void> {
+  const { listen } = await import("@tauri-apps/api/event");
+
+  await listen("watcher-status", (event: any) => {
+    const data = event.payload;
+    const btn  = document.getElementById("index-btn");
+    if (!btn) return;
+
+    if (data.status === "watching") {
+      btn.textContent = `✓ Watching ▾`;
+      btn.style.color = "#6ee7b7";
+      setTimeout(() => {
+        btn.textContent = "Index ▾";
+        btn.style.color = "";
+      }, 3000);
+    } else if (data.status === "updating") {
+      btn.textContent = `⟳ Updating ▾`;
+      btn.style.color = "#a89ff9";
+    } else if (data.status === "idle") {
+      btn.textContent = `✓ Index up to date ▾`;
+      btn.style.color = "#6ee7b7";
+      setTimeout(() => {
+        btn.textContent = "Index ▾";
+        btn.style.color = "";
+      }, 3000);
+      updateSearchPlaceholder();
+    }
+  });
+
+  await listen("watcher-activity", (event: any) => {
+    const activity: any[] = event.payload;
+    if (!activity || activity.length === 0) return;
+
+    // Store in memory log (max 50)
+    const log = (window as any).__haloActivityLog || [];
+    activity.forEach(item => {
+      log.unshift({
+        time: new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        name: item.name || item.path.split("/").pop(),
+        action: item.action,
+      });
+    });
+    (window as any).__haloActivityLog = log.slice(0, 50);
+  });
+}
+
 // ── Start ──
 init();
+
+// ── Boot watcher after folders load ──
+setTimeout(async () => {
+  await setupWatcherEvents();
+  await startFileWatcher();
+}, 1000);
 
 // ── Update search placeholder with file count ──
 async function updateSearchPlaceholder(): Promise<void> {
