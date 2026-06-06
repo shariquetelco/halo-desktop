@@ -9,6 +9,7 @@ import { getIdentity, getAllIcons, getAllColors, getDefaultRecentIcons, FolderId
 import { scanFolder } from "./scanner";
 import { saveFolder, loadAllFolders, deleteFolder, FolderRecord } from "./storage";
 import { findRelatedFolders } from "./relations";
+import { listen } from "@tauri-apps/api/event";
 
 // ── State ──
 let folders: FolderRecord[] = [];
@@ -36,6 +37,16 @@ const statFolders       = document.getElementById("stat-folders")!;
 const statModified      = document.getElementById("stat-modified")!;
 const changeIconBtn     = document.getElementById("change-icon-btn")!;
 const changeColorBtn    = document.getElementById("change-color-btn")!;
+const searchInput        = document.getElementById("search-input") as HTMLInputElement;
+const searchResultsView  = document.getElementById("search-results-view")!;
+const searchResultsList  = document.getElementById("search-results-list")!;
+const searchResultsCount = document.getElementById("search-results-count")!;
+const searchQuote        = document.getElementById("search-quote")!;
+const indexBtn           = document.getElementById("index-btn")!;
+const indexDropdown      = document.getElementById("index-dropdown")!;
+const reindexBtn         = document.getElementById("reindex-btn")!;
+const statIndexedFiles   = document.getElementById("stat-indexed-files")!;
+const statIndexedFolders = document.getElementById("stat-indexed-folders")!;
 const applyFinderBtn    = document.getElementById("apply-finder-btn")!;
 // ── Startup ──
 async function init(): Promise<void> {
@@ -43,6 +54,7 @@ async function init(): Promise<void> {
   loadRecentlyViewed();
   renderSidebar();
   showEmptyState();
+  updateSearchPlaceholder();
 }
 
 // ── Recently Viewed ──
@@ -1058,5 +1070,324 @@ function showSyncStatus(status: "syncing" | "success" | "error"): void {
     }, 4000);
   }
 }
+
+// ── Search Quotes ──
+const SEARCH_QUOTES = [
+  "Faster than your thoughts.",
+  "You blink. We find it.",
+  "Lightning fast. Always local.",
+  "Your knowledge, instantly.",
+  "Search everything. Share nothing.",
+  "Built in Germany. Fast everywhere.",
+  "Private search. Real results.",
+  "No cloud. No waiting.",
+  "Find the needle. Keep the haystack.",
+  "Memory for your computer.",
+  "Google Desktop, reborn.",
+  "Your files remember everything.",
+];
+
+let quoteIndex = 0;
+
+function rotateQuote(): void {
+  quoteIndex = (quoteIndex + 1) % SEARCH_QUOTES.length;
+  searchQuote.style.opacity = "0";
+  setTimeout(() => {
+    searchQuote.textContent = SEARCH_QUOTES[quoteIndex];
+    searchQuote.style.opacity = "1";
+  }, 300);
+}
+
+// Start quote rotation
+searchQuote.textContent = SEARCH_QUOTES[0];
+searchQuote.style.transition = "opacity 300ms ease";
+setInterval(rotateQuote, 4000);
+
+// ── File type icon ──
+function getFileIcon(ext: string): string {
+  const icons: Record<string, string> = {
+    pdf: "📄", md: "📝", txt: "📃", ts: "💻",
+    js: "💻", py: "🐍", rs: "⚙️", json: "📋",
+    swift: "🍎", css: "🎨", html: "🌐", sh: "⌨️",
+    yaml: "📋", toml: "📋", csv: "📊",
+  };
+  return icons[ext] || "📄";
+}
+
+// ── File type badge class ──
+function getExtClass(ext: string): string {
+  const classes: Record<string, string> = {
+    md: "ext-md", txt: "ext-txt", ts: "ext-ts",
+    js: "ext-js", py: "ext-py", rs: "ext-rs",
+    json: "ext-json", pdf: "ext-pdf",
+  };
+  return classes[ext] || "ext-default";
+}
+
+// ── Get folder name from path ──
+function getFolderName(folderPath: string): string {
+  const tracked = folders.find(f => folderPath.startsWith(f.path));
+  if (tracked) return tracked.name;
+  return folderPath.split("/").filter(Boolean).pop() || folderPath;
+}
+
+// ── Get folder identity from path ──
+function getFolderForPath(filePath: string): FolderRecord | null {
+  return folders.find(f => filePath.startsWith(f.path)) || null;
+}
+
+// ── Render search results ──
+function renderSearchResults(
+  results: any[],
+  query: string,
+  elapsed: number
+): void {
+  searchResultsList.innerHTML = "";
+
+  if (results.length === 0) {
+    searchResultsList.innerHTML = `
+      <div class="search-empty">
+        <div class="search-empty-icon">🔍</div>
+        <div>No results found for "<strong>${query}</strong>"</div>
+        <div style="font-size:12px;color:var(--text-dim)">
+          Try indexing more folders using the Index button
+        </div>
+      </div>
+    `;
+    searchResultsCount.textContent = `No results`;
+    return;
+  }
+
+  const ms = elapsed < 1 ? `${(elapsed * 1000).toFixed(0)}ms` : `${elapsed.toFixed(2)}s`;
+  searchResultsCount.innerHTML = `
+    Found <strong style="color:var(--text)">${results.length}</strong> results
+    in <strong style="color:#6ee7b7">${ms}</strong>
+  `;
+
+  results.forEach(result => {
+    const folderRecord = getFolderForPath(result.path);
+    const folderName   = getFolderName(result.folder);
+    const icon         = getFileIcon(result.extension);
+    const extClass     = getExtClass(result.extension);
+
+    const card = document.createElement("div");
+    card.className = "search-result-card";
+
+    const folderIcon  = folderRecord ? folderRecord.icon  : "📁";
+    const folderColor = folderRecord ? folderRecord.color : "#6b7280";
+
+    // Shorten path for display
+    const home = result.path.replace(/^\/Users\/[^/]+/, '~');
+    const shortPath = home.length > 60
+      ? '...' + home.slice(-57)
+      : home;
+
+    card.innerHTML = `
+      <div class="search-result-top">
+        <div class="search-result-icon"
+             style="background:${hexToRgba(folderColor, 0.18)}">
+          ${icon}
+        </div>
+        <div class="search-result-meta">
+          <div class="search-result-name">${result.name}</div>
+          <div class="search-result-folder">
+            <span style="font-size:14px">${folderIcon}</span>
+            <strong style="color:rgba(255,255,255,0.6)">${folderName}</strong>
+          </div>
+          <div class="search-result-path">${shortPath}</div>
+        </div>
+        <span class="ext-badge ${extClass}">${result.extension}</span>
+        <div class="search-result-actions">
+          <button class="result-action-btn open-btn">Open</button>
+          <button class="result-action-btn reveal-btn">Finder</button>
+        </div>
+      </div>
+      <div class="search-result-snippet">${result.snippet}</div>
+    `;
+
+    const openBtn   = card.querySelector(".open-btn")   as HTMLButtonElement;
+    const revealBtn = card.querySelector(".reveal-btn") as HTMLButtonElement;
+
+    openBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await invoke("open_file", { path: result.path });
+      } catch (err) {
+        console.error("Open error:", err);
+      }
+    });
+
+    revealBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await invoke("reveal_in_finder", { path: result.path });
+      } catch (err) {
+        console.error("Reveal error:", err);
+      }
+    });
+
+    searchResultsList.appendChild(card);
+  });
+}
+
+// ── Show search results view ──
+function showSearchView(): void {
+  emptyState.classList.add("hidden");
+  identityView.classList.add("hidden");
+  searchResultsView.classList.remove("hidden");
+  headerActions.classList.add("hidden");
+}
+
+// ── Hide search results view ──
+function hideSearchView(): void {
+  searchResultsView.classList.add("hidden");
+  if (activeFolderPath) {
+    const folder = folders.find(f => f.path === activeFolderPath);
+    if (folder) {
+      showIdentityView(folder);
+      return;
+    }
+  }
+  showEmptyState();
+}
+
+// ── Search input handler ──
+let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+searchInput.addEventListener("input", () => {
+  const query = searchInput.value.trim();
+
+  if (searchTimeout) clearTimeout(searchTimeout);
+
+  if (!query) {
+    hideSearchView();
+    return;
+  }
+
+  showSearchView();
+  searchResultsCount.textContent = "Searching...";
+
+  searchTimeout = setTimeout(() => {
+    const start = performance.now();
+    invoke<any[]>("search_files", { query, limit: 30 })
+      .then(results => {
+        const elapsed = (performance.now() - start) / 1000;
+        renderSearchResults(results, query, elapsed);
+      })
+      .catch(err => {
+        console.error("Search error:", err);
+        searchResultsCount.textContent = "No results yet — index still building";
+      });
+  }, 300);
+});
+
+// Clear search on Escape
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    searchInput.value = "";
+    hideSearchView();
+  }
+});
+
+// ── Index button dropdown ──
+indexBtn.addEventListener("click", async (e) => {
+  e.stopPropagation();
+  indexDropdown.classList.toggle("hidden");
+
+  if (!indexDropdown.classList.contains("hidden")) {
+    try {
+      const stats = await invoke<any>("get_index_stats", {});
+      statIndexedFiles.textContent   = stats.files.toString();
+      statIndexedFolders.textContent = stats.folders.toString();
+    } catch (err) {
+      console.error("Stats error:", err);
+    }
+  }
+});
+
+// Close dropdown when clicking outside
+document.addEventListener("click", (e) => {
+  if (!indexDropdown.contains(e.target as Node) &&
+      e.target !== indexBtn) {
+    indexDropdown.classList.add("hidden");
+  }
+});
+
+// ── Reindex button ──
+reindexBtn.addEventListener("click", async () => {
+  const total = folders.length;
+  let completed = 0;
+
+  reindexBtn.textContent   = "⟳ Starting...";
+  reindexBtn.style.opacity = "0.8";
+  indexBtn.textContent     = "🟡 Indexing ▾";
+
+
+
+  const unlistenProgress = await listen("index-progress", (event: any) => {
+    const data = event.payload;
+    const folderName = data.folder.split("/").filter(Boolean).pop() || data.folder;
+    reindexBtn.textContent = `⟳ ${folderName}: ${data.indexed}/${data.total} files`;
+    statIndexedFiles.textContent = data.indexed.toLocaleString();
+  });
+
+  const unlistenComplete = await listen("index-complete", async (event: any) => {
+    completed++;
+    const folderName = event.payload.folder.split("/").filter(Boolean).pop();
+    reindexBtn.textContent = `✓ ${folderName} (${completed}/${total})`;
+
+    if (completed >= total) {
+      unlistenProgress();
+      unlistenComplete();
+
+      const stats = await invoke<any>("get_index_stats", {});
+      const formatted = stats.files.toLocaleString();
+
+      statIndexedFiles.textContent   = formatted;
+      statIndexedFolders.textContent = stats.folders.toString();
+
+      // Update placeholder with new count
+      searchInput.placeholder = `Search across ${formatted} files...`;
+
+      indexBtn.textContent   = `🟢 ${formatted} files ▾`;
+      reindexBtn.textContent = `✓ ${formatted} files indexed`;
+      reindexBtn.style.opacity = "1";
+
+      setTimeout(() => {
+        reindexBtn.textContent = "⟳ Rebuild Index";
+        indexBtn.textContent   = "Index ▾";
+      }, 5000);
+    }
+  });
+
+  // Fire all indexing in parallel — non-blocking
+  folders.forEach(folder => {
+    invoke("index_folder", { folderPath: folder.path }).catch(console.error);
+  });
+});
+
+// ── Auto-index when folder is added ──
+// Called after addFolder() saves a record
+async function autoIndexFolder(folderPath: string): Promise<void> {
+  try {
+    await invoke("index_folder", { folderPath });
+  } catch (err) {
+    console.error("Auto-index error:", err);
+  }
+}
+
 // ── Start ──
 init();
+
+// ── Update search placeholder with file count ──
+async function updateSearchPlaceholder(): Promise<void> {
+  try {
+    const stats = await invoke<any>("get_index_stats", {});
+    if (stats.files > 0) {
+      const formatted = stats.files.toLocaleString();
+      searchInput.placeholder = `Search across ${formatted} files...`;
+      statIndexedFiles.textContent   = stats.files.toLocaleString();
+      statIndexedFolders.textContent = stats.folders.toString();
+    }
+  } catch {}
+}

@@ -7,8 +7,17 @@
 
 use std::path::PathBuf;
 use std::process::Command;
+use std::sync::{Arc, Mutex};
 use rusqlite::{Connection, params};
 use walkdir::WalkDir;
+use tauri::Emitter;
+
+// ── Global DB mutex for thread safety ──
+static DB_MUTEX: std::sync::OnceLock<Arc<Mutex<()>>> = std::sync::OnceLock::new();
+
+fn get_db_lock() -> Arc<Mutex<()>> {
+    DB_MUTEX.get_or_init(|| Arc::new(Mutex::new(()))).clone()
+}
 
 // ── Paths ──
 fn assets_dir() -> PathBuf {
@@ -74,80 +83,115 @@ fn is_indexable(ext: &str) -> bool {
     )
 }
 
-// ── Index a folder ──
+// ── Index a folder (non-blocking) ──
 #[tauri::command]
-fn index_folder(folder_path: String) -> Result<String, String> {
-    let conn = open_db()?;
-    let mut indexed = 0;
-    let mut skipped = 0;
+fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, String> {
+    let path = folder_path.clone();
 
-    for entry in WalkDir::new(&folder_path)
-        .follow_links(false)
-        .max_depth(5)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if !entry.file_type().is_file() { continue; }
-
-        let path = entry.path();
-        let ext  = path.extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-
-        if !is_indexable(&ext) {
-            skipped += 1;
-            continue;
-        }
-
-        // Read file content
-        let content = match std::fs::read_to_string(path) {
+    std::thread::spawn(move || {
+        let binding = get_db_lock();
+        let _lock = binding.lock().unwrap();
+        let conn = match open_db() {
             Ok(c)  => c,
-            Err(_) => { skipped += 1; continue; }
+            Err(e) => {
+                let _ = app.emit("index-error", e);
+                return;
+            }
         };
 
-        if content.trim().is_empty() {
-            skipped += 1;
-            continue;
+        let mut indexed = 0;
+        let mut total   = 0;
+
+        // Count total first for progress
+        for entry in WalkDir::new(&path)
+            .follow_links(false)
+            .max_depth(5)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if entry.file_type().is_file() {
+                let ext = entry.path()
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                if is_indexable(&ext) { total += 1; }
+            }
         }
 
-        let path_str = path.to_string_lossy().to_string();
-        let name     = path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string();
+        for entry in WalkDir::new(&path)
+            .follow_links(false)
+            .max_depth(5)
+            .into_iter()
+            .filter_map(|e| e.ok())
+        {
+            if !entry.file_type().is_file() { continue; }
 
-        let modified = std::fs::metadata(path)
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs() as i64)
-            .unwrap_or(0);
+            let file_path = entry.path();
+            let ext = file_path.extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or("")
+                .to_lowercase();
 
-        // Insert or replace in indexed_files
-        conn.execute(
-            "INSERT OR REPLACE INTO indexed_files
-             (path, name, folder, extension, modified)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![path_str, name, folder_path, ext, modified],
-        ).map_err(|e| e.to_string())?;
+            if !is_indexable(&ext) { continue; }
 
-        // Remove old content if exists
-        conn.execute(
-            "DELETE FROM file_content WHERE path = ?1",
-            params![path_str],
-        ).map_err(|e| e.to_string())?;
+            let content = match std::fs::read_to_string(file_path) {
+                Ok(c)  => c,
+                Err(_) => continue,
+            };
 
-        // Insert new content
-        conn.execute(
-            "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
-            params![path_str, content],
-        ).map_err(|e| e.to_string())?;
+            if content.trim().is_empty() { continue; }
 
-        indexed += 1;
-    }
+            let path_str = file_path.to_string_lossy().to_string();
+            let name     = file_path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_string();
 
-    Ok(format!("Indexed {} files ({} skipped)", indexed, skipped))
+            let modified = std::fs::metadata(file_path)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+
+            let _ = conn.execute(
+                "INSERT OR REPLACE INTO indexed_files
+                 (path, name, folder, extension, modified)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                rusqlite::params![path_str, name, path, ext, modified],
+            );
+
+            let _ = conn.execute(
+                "DELETE FROM file_content WHERE path = ?1",
+                rusqlite::params![path_str],
+            );
+
+            let _ = conn.execute(
+                "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
+                rusqlite::params![path_str, content],
+            );
+
+            indexed += 1;
+
+            // Emit progress every 10 files
+            if indexed % 10 == 0 {
+                let _ = app.emit("index-progress", serde_json::json!({
+                    "folder":  path,
+                    "indexed": indexed,
+                    "total":   total,
+                }));
+            }
+        }
+
+        let _ = app.emit("index-complete", serde_json::json!({
+            "folder":  path,
+            "indexed": indexed,
+            "total":   total,
+        }));
+    });
+
+    Ok("Indexing started in background".to_string())
 }
 
 // ── Search ──
@@ -277,7 +321,27 @@ fn apply_folder_icon(
     }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+// ── Open file in default app ──
+#[tauri::command]
+fn open_file(path: String) -> Result<(), String> {
+    Command::new("open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+// ── Reveal file in Finder ──
+#[tauri::command]
+fn reveal_in_finder(path: String) -> Result<(), String> {
+    Command::new("open")
+        .arg("-R")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+    #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -287,6 +351,8 @@ pub fn run() {
             index_folder,
             search_files,
             get_index_stats,
+            open_file,
+            reveal_in_finder,
         ])
         .run(tauri::generate_context!())
         .expect("error while running HALO");
