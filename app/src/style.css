@@ -833,3 +833,89 @@ html, body {
   opacity: 1;
   background: rgba(239, 68, 68, 0.15);
 }
+
+/* ════════════════════════
+   RELATED FOLDERS
+════════════════════════ */
+
+#identity-relations {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 600px;
+}
+
+#relations-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+#relations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.relation-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background var(--transition-smooth),
+              transform var(--transition-fast),
+              border-color var(--transition-smooth);
+}
+
+.relation-item:hover {
+  background: var(--card-bg-hover);
+  border-color: rgba(124, 106, 247, 0.25);
+  transform: translateX(4px);
+}
+
+.relation-icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.relation-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.relation-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.relation-reason {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.relation-strength-strong {
+  border-left: 2px solid rgba(124, 106, 247, 0.5);
+}
+
+.relation-strength-medium {
+  border-left: 2px solid rgba(255, 255, 255, 0.1);
+}

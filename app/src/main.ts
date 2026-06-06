@@ -7,6 +7,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { getIdentity, getAllIcons, getAllColors, getDefaultRecentIcons, FolderIdentity } from "./identity";
 import { scanFolder } from "./scanner";
 import { saveFolder, loadAllFolders, deleteFolder, FolderRecord } from "./storage";
+import { findRelatedFolders } from "./relations";
 
 // ── State ──
 let folders: FolderRecord[] = [];
@@ -234,6 +235,225 @@ function showIdentityView(folder: FolderRecord): void {
   statFiles.textContent    = folder.fileCount.toString();
   statFolders.textContent  = folder.folderCount.toString();
   statModified.textContent = formatRelativeTime(folder.lastModified);
+
+  // ── Related Folders ──
+  // ── Related Folders ──
+  renderRelations(folder);
+}
+
+// ── Render Relations ──
+function renderRelations(folder: FolderRecord): void {
+  const relationsEl   = document.getElementById("identity-relations")!;
+  const relationsList = document.getElementById("relations-list")!;
+
+  // Load manual overrides from localStorage
+  const storageKey = `halo-relations-${folder.path}`;
+  let manualRelations: string[] = [];
+  let removedRelations: string[] = [];
+
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      manualRelations  = parsed.manual  ?? [];
+      removedRelations = parsed.removed ?? [];
+    }
+  } catch {}
+
+  function saveRelationOverrides() {
+    localStorage.setItem(storageKey, JSON.stringify({
+      manual:  manualRelations,
+      removed: removedRelations,
+    }));
+  }
+
+  // Get auto-suggested relations minus removed ones
+  const autoRelated = findRelatedFolders(folder, folders)
+    .filter(r => !removedRelations.includes(r.folder.path));
+
+  // Get manually added relations
+  const manualFolders = manualRelations
+    .map(path => folders.find(f => f.path === path))
+    .filter(Boolean) as FolderRecord[];
+
+  // Combine: manual first, then auto
+  const allRelated = [
+    ...manualFolders.map(f => ({ folder: f, strength: "strong" as const, reason: "Added by you", manual: true })),
+    ...autoRelated.map(r => ({ ...r, manual: false })),
+  ];
+
+  relationsEl.classList.remove("hidden");
+  relationsList.innerHTML = "";
+
+  if (allRelated.length === 0 && folders.length <= 1) {
+    relationsEl.classList.add("hidden");
+    return;
+  }
+
+  // Render each relation
+  allRelated.forEach(relation => {
+    const item = document.createElement("div");
+    item.className = `relation-item relation-strength-${relation.strength}`;
+    item.style.cursor = "pointer";
+
+    item.innerHTML = `
+      <span class="relation-icon-wrap"
+            style="background: ${hexToRgba(relation.folder.color, 0.18)}">
+        ${relation.folder.icon}
+      </span>
+      <span class="relation-text">
+        <span class="relation-name">${relation.folder.name}</span>
+        <span class="relation-reason">${relation.manual ? "Added by you" : relation.folder.category}</span>
+      </span>
+      <button class="relation-remove-btn" title="Remove relationship" style="
+        background: none;
+        border: none;
+        color: rgba(255,255,255,0.2);
+        font-size: 14px;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 6px;
+        transition: all 120ms ease;
+        flex-shrink: 0;
+        display: none;
+      ">✕</button>
+    `;
+
+    const removeBtn = item.querySelector(".relation-remove-btn") as HTMLButtonElement;
+
+    item.addEventListener("mouseenter", () => {
+      removeBtn.style.display = "block";
+      removeBtn.style.color = "rgba(255,255,255,0.5)";
+    });
+    item.addEventListener("mouseleave", () => {
+      removeBtn.style.display = "none";
+    });
+
+    removeBtn.addEventListener("mouseenter", () => {
+      removeBtn.style.color = "#fca5a5";
+      removeBtn.style.background = "rgba(239,68,68,0.15)";
+    });
+    removeBtn.addEventListener("mouseleave", () => {
+      removeBtn.style.color = "rgba(255,255,255,0.5)";
+      removeBtn.style.background = "none";
+    });
+
+    removeBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (relation.manual) {
+        manualRelations = manualRelations.filter(p => p !== relation.folder.path);
+      } else {
+        removedRelations.push(relation.folder.path);
+      }
+      saveRelationOverrides();
+      renderRelations(folder);
+    });
+
+    item.addEventListener("click", (e) => {
+      if ((e.target as HTMLElement).classList.contains("relation-remove-btn")) return;
+      selectFolder(relation.folder.path);
+    });
+
+    relationsList.appendChild(item);
+  });
+
+  // ── Add Relationship Button ──
+  const addBtn = document.createElement("button");
+  addBtn.style.cssText = `
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: none;
+    border: 1px dashed rgba(255,255,255,0.1);
+    border-radius: 10px;
+    color: rgba(255,255,255,0.3);
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 150ms ease;
+    margin-top: 2px;
+  `;
+  addBtn.textContent = "+ Add Relationship";
+
+  addBtn.addEventListener("mouseenter", () => {
+    addBtn.style.borderColor = "rgba(124,106,247,0.4)";
+    addBtn.style.color = "#c4b8ff";
+  });
+  addBtn.addEventListener("mouseleave", () => {
+    addBtn.style.borderColor = "rgba(255,255,255,0.1)";
+    addBtn.style.color = "rgba(255,255,255,0.3)";
+  });
+
+  addBtn.addEventListener("click", () => {
+    // Show picker of available folders
+    const available = folders.filter(f =>
+      f.path !== folder.path &&
+      !manualRelations.includes(f.path) &&
+      !allRelated.find(r => r.folder.path === f.path)
+    );
+
+    if (available.length === 0) return;
+
+    const overlay = document.createElement("div");
+    overlay.className = "picker-overlay";
+
+    const panel = document.createElement("div");
+    panel.className = "picker-panel";
+    panel.style.cssText = `width: 300px; display: flex; flex-direction: column; gap: 8px;`;
+
+    const title = document.createElement("div");
+    title.className = "picker-title";
+    title.textContent = "Add Related Folder";
+    panel.appendChild(title);
+
+    available.forEach(f => {
+      const item = document.createElement("div");
+      item.style.cssText = `
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px; border-radius: 8px;
+        cursor: pointer; transition: background 120ms ease;
+        border: 1px solid transparent;
+      `;
+      item.innerHTML = `
+        <span style="width:28px;height:28px;border-radius:7px;
+          background:${hexToRgba(f.color, 0.18)};display:flex;
+          align-items:center;justify-content:center;font-size:15px;flex-shrink:0">
+          ${f.icon}
+        </span>
+        <span style="display:flex;flex-direction:column;gap:2px;overflow:hidden">
+          <span style="font-size:13px;font-weight:500;color:#f0f0f8;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+            ${f.name}
+          </span>
+          <span style="font-size:11px;color:rgba(255,255,255,0.3)">${f.category}</span>
+        </span>
+      `;
+      item.addEventListener("mouseenter", () => {
+        item.style.background = "rgba(124,106,247,0.1)";
+        item.style.borderColor = "rgba(124,106,247,0.2)";
+      });
+      item.addEventListener("mouseleave", () => {
+        item.style.background = "none";
+        item.style.borderColor = "transparent";
+      });
+      item.addEventListener("click", () => {
+        manualRelations.push(f.path);
+        saveRelationOverrides();
+        document.body.removeChild(overlay);
+        renderRelations(folder);
+      });
+      panel.appendChild(item);
+    });
+
+    overlay.appendChild(panel);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) document.body.removeChild(overlay);
+    });
+    document.body.appendChild(overlay);
+  });
+
+  relationsList.appendChild(addBtn);
 }
 
 // ── Select Folder ──
@@ -248,6 +468,13 @@ function selectFolder(path: string): void {
 
 // ── Remove Folder ──
 async function removeFolderFromHalo(path: string): Promise<void> {
+  const folder = folders.find(f => f.path === path);
+  if (!folder) return;
+
+  // Show confirmation dialog
+  const confirmed = await showDeleteConfirmation(folder.name);
+  if (!confirmed) return;
+
   await deleteFolder(path);
   folders = folders.filter(f => f.path !== path);
   recentlyViewed = recentlyViewed.filter(r => r.path !== path);
@@ -257,6 +484,89 @@ async function removeFolderFromHalo(path: string): Promise<void> {
   } else {
     renderSidebar();
   }
+}
+
+// ── Delete Confirmation Dialog ──
+function showDeleteConfirmation(folderName: string): Promise<boolean> {
+  return new Promise(resolve => {
+    const overlay = document.createElement("div");
+    overlay.className = "picker-overlay";
+
+    const dialog = document.createElement("div");
+    dialog.style.cssText = `
+      background: #13131f;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 28px;
+      width: 380px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+      animation: scale-in 150ms ease-out;
+    `;
+
+    dialog.innerHTML = `
+      <div style="font-size: 20px; text-align: center;">🗑️</div>
+      <div style="font-size: 16px; font-weight: 700; color: #f0f0f8; text-align: center;">
+        Remove from HALO?
+      </div>
+      <div style="font-size: 13px; color: rgba(255,255,255,0.5); text-align: center; line-height: 1.6;">
+        <strong style="color: rgba(255,255,255,0.8);">${folderName}</strong> will be removed from HALO only.<br><br>
+        Your folder and all files inside it will remain completely unchanged on your Mac or PC.<br>
+        Nothing will be deleted from your computer.
+      </div>
+      <div style="display: flex; gap: 10px; margin-top: 4px;">
+        <button id="confirm-cancel" style="
+          flex: 1; padding: 10px;
+          background: rgba(255,255,255,0.06);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: 10px; color: rgba(255,255,255,0.7);
+          font-size: 13px; font-weight: 500;
+          cursor: pointer; font-family: inherit;
+          transition: background 150ms ease;
+        ">Cancel</button>
+        <button id="confirm-delete" style="
+          flex: 1; padding: 10px;
+          background: rgba(239,68,68,0.15);
+          border: 1px solid rgba(239,68,68,0.3);
+          border-radius: 10px; color: #fca5a5;
+          font-size: 13px; font-weight: 600;
+          cursor: pointer; font-family: inherit;
+          transition: background 150ms ease;
+        ">Remove from HALO</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const cancelBtn = dialog.querySelector("#confirm-cancel") as HTMLButtonElement;
+    const deleteBtn = dialog.querySelector("#confirm-delete") as HTMLButtonElement;
+
+    cancelBtn.addEventListener("mouseenter", () => {
+      cancelBtn.style.background = "rgba(255,255,255,0.1)";
+    });
+    cancelBtn.addEventListener("mouseleave", () => {
+      cancelBtn.style.background = "rgba(255,255,255,0.06)";
+    });
+    deleteBtn.addEventListener("mouseenter", () => {
+      deleteBtn.style.background = "rgba(239,68,68,0.25)";
+    });
+    deleteBtn.addEventListener("mouseleave", () => {
+      deleteBtn.style.background = "rgba(239,68,68,0.15)";
+    });
+
+    cancelBtn.addEventListener("click", () => {
+      document.body.removeChild(overlay);
+      resolve(false);
+    });
+
+    deleteBtn.addEventListener("click", () => {
+      document.body.removeChild(overlay);
+      resolve(true);
+    });
+  });
 }
 
 // ── Add Folder ──
