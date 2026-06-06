@@ -3,22 +3,31 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>HALO — Your folders deserve more than names.</title>
-  <meta name="description" content="HALO gives every folder an identity, remembers what matters, and helps you find knowledge across your computer. Private. Local. Fast." />
+  <title>HALO — Your computer remembers files. HALO remembers meaning.</title>
+  <meta name="description" content="HALO gives every folder an identity, connects related projects, and searches inside your files. Private. Local. Fast." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Clash+Display:wght@400;500;600;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet" />
   <style>
+
+    /* ══════════════════════════════════
+       RESET & ROOT
+    ══════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:         #07070f;
-      --bg-card:    rgba(255,255,255,0.04);
-      --border:     rgba(255,255,255,0.08);
-      --text:       #f0f0f8;
-      --subtle:     rgba(255,255,255,0.45);
-      --dim:        rgba(255,255,255,0.2);
-      --accent:     #7c6af7;
-      --accent-glow: rgba(124,106,247,0.3);
+      --bg:           #05050e;
+      --bg-card:      rgba(255,255,255,0.03);
+      --bg-card-h:    rgba(255,255,255,0.055);
+      --border:       rgba(255,255,255,0.07);
+      --border-h:     rgba(255,255,255,0.14);
+      --text:         #eeeef5;
+      --subtle:       rgba(238,238,245,0.5);
+      --dim:          rgba(238,238,245,0.22);
+      --accent:       #7c6af7;
+      --accent-2:     #f43f8e;
+      --accent-glow:  rgba(124,106,247,0.28);
+      --rose-glow:    rgba(244,63,142,0.2);
+      --card-r:       18px;
     }
 
     html { scroll-behavior: smooth; }
@@ -26,58 +35,122 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Inter', -apple-system, sans-serif;
+      font-family: 'DM Sans', system-ui, sans-serif;
       font-size: 16px;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       overflow-x: hidden;
     }
 
-    /* ── Nav ── */
+    h1, h2, h3, .display {
+      font-family: 'Clash Display', sans-serif;
+      letter-spacing: -0.02em;
+    }
+
+    /* ══════════════════════════════════
+       NOISE TEXTURE OVERLAY
+    ══════════════════════════════════ */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.5;
+    }
+
+    /* ══════════════════════════════════
+       NAV
+    ══════════════════════════════════ */
     nav {
       position: fixed;
       top: 0; left: 0; right: 0;
+      z-index: 999;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 16px 40px;
-      background: rgba(7,7,15,0.8);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      z-index: 100;
+      padding: 0 48px;
+      height: 64px;
+      transition: background 300ms ease, border-color 300ms ease;
+      border-bottom: 1px solid transparent;
+    }
+
+    nav.scrolled {
+      background: rgba(5,5,14,0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-color: var(--border);
     }
 
     .nav-logo {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 16px;
+      font-family: 'Clash Display', sans-serif;
+      font-size: 18px;
       font-weight: 700;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      color: var(--text);
+      text-decoration: none;
     }
 
+    .nav-logo-orb {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #9180f9, #7c6af7 50%, #4f46e5);
+      box-shadow: 0 0 16px rgba(124,106,247,0.5);
+      animation: orb-spin 8s linear infinite;
+    }
+
+    @keyframes orb-spin {
+      0%   { box-shadow: 0 0 16px rgba(124,106,247,0.5); }
+      50%  { box-shadow: 0 0 24px rgba(244,63,142,0.4); }
+      100% { box-shadow: 0 0 16px rgba(124,106,247,0.5); }
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--subtle);
+      text-decoration: none;
+      transition: color 150ms ease;
+      letter-spacing: 0.02em;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
     .nav-cta {
-      padding: 8px 20px;
+      padding: 8px 22px;
       background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 8px;
+      color: white !important;
+      border-radius: 10px;
       font-size: 13px;
       font-weight: 600;
-      cursor: pointer;
-      font-family: inherit;
       text-decoration: none;
       transition: all 150ms ease;
+      letter-spacing: 0.02em;
     }
 
     .nav-cta:hover {
       background: #9180f9;
-      box-shadow: 0 0 20px var(--accent-glow);
+      box-shadow: 0 0 24px var(--accent-glow);
       transform: translateY(-1px);
+      color: white !important;
     }
 
-    /* ── Hero ── */
+    /* ══════════════════════════════════
+       HERO
+    ══════════════════════════════════ */
     .hero {
       position: relative;
       min-height: 100vh;
@@ -86,97 +159,138 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 120px 40px 80px;
+      padding: 140px 40px 100px;
       overflow: hidden;
     }
 
-    .hero-orb {
+    /* Orbs */
+    .orb {
       position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -60%);
-      width: 700px;
-      height: 700px;
       border-radius: 50%;
-      background: radial-gradient(
-        ellipse at center,
-        rgba(124,106,247,0.2) 0%,
-        rgba(99,102,241,0.1) 35%,
-        rgba(236,72,153,0.06) 60%,
-        transparent 75%
-      );
-      filter: blur(60px);
       pointer-events: none;
-      animation: pulse 5s ease-in-out infinite;
+      filter: blur(80px);
     }
 
-    @keyframes pulse {
-      0%, 100% { transform: translate(-50%, -60%) scale(1);    opacity: 0.8; }
-      50%       { transform: translate(-50%, -60%) scale(1.08); opacity: 1;   }
+    .orb-1 {
+      width: 800px; height: 800px;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      background: radial-gradient(ellipse, rgba(124,106,247,0.18) 0%, transparent 70%);
+      animation: orb-pulse 6s ease-in-out infinite;
     }
 
-    .hero-mesh {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      background:
-        radial-gradient(ellipse at 15% 50%, rgba(124,106,247,0.07) 0%, transparent 50%),
-        radial-gradient(ellipse at 85% 20%, rgba(99,102,241,0.05) 0%, transparent 50%),
-        radial-gradient(ellipse at 60% 85%, rgba(236,72,153,0.04) 0%, transparent 50%);
+    .orb-2 {
+      width: 500px; height: 500px;
+      bottom: 0; left: -100px;
+      background: radial-gradient(ellipse, rgba(99,102,241,0.12) 0%, transparent 70%);
+      animation: orb-pulse 8s ease-in-out infinite reverse;
     }
 
-    .hero-content {
+    .orb-3 {
+      width: 400px; height: 400px;
+      bottom: 100px; right: -80px;
+      background: radial-gradient(ellipse, rgba(244,63,142,0.1) 0%, transparent 70%);
+      animation: orb-pulse 7s ease-in-out infinite 2s;
+    }
+
+    @keyframes orb-pulse {
+      0%, 100% { transform: scale(1) translateX(0);    opacity: 0.8; }
+      50%       { transform: scale(1.08) translateX(0); opacity: 1;   }
+    }
+
+    .orb-1 { animation: orb-main 6s ease-in-out infinite; }
+    @keyframes orb-main {
+      0%, 100% { transform: translateX(-50%) scale(1);    opacity: 0.8; }
+      50%       { transform: translateX(-50%) scale(1.06); opacity: 1;   }
+    }
+
+    /* Hero content */
+    .hero-inner {
       position: relative;
-      z-index: 1;
+      z-index: 2;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
-      max-width: 760px;
+      gap: 24px;
+      max-width: 860px;
     }
 
     .hero-badge {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 6px 16px;
-      background: rgba(124,106,247,0.1);
-      border: 1px solid rgba(124,106,247,0.25);
+      padding: 6px 18px;
+      background: rgba(124,106,247,0.08);
+      border: 1px solid rgba(124,106,247,0.2);
       border-radius: 100px;
       font-size: 12px;
       font-weight: 500;
-      color: #c4b8ff;
-      letter-spacing: 0.05em;
+      color: #b8b0ff;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      animation: fade-up 0.6s ease-out both;
     }
 
     .hero-title {
-      font-size: 64px;
-      font-weight: 900;
-      line-height: 1.05;
-      letter-spacing: -0.03em;
-      background: linear-gradient(135deg, #f0f0f8 0%, rgba(240,240,248,0.6) 100%);
+      font-size: clamp(56px, 8vw, 96px);
+      font-weight: 700;
+      line-height: 1.0;
+      letter-spacing: -0.035em;
+      background: linear-gradient(
+        160deg,
+        #ffffff 0%,
+        rgba(238,238,245,0.9) 40%,
+        rgba(180,176,255,0.8) 100%
+      );
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
+      animation: fade-up 0.6s ease-out 0.1s both;
     }
 
-    .hero-subtitle {
-      font-size: 18px;
+    .hero-sub {
+      font-size: clamp(16px, 2vw, 20px);
       color: var(--subtle);
-      max-width: 520px;
+      max-width: 560px;
       line-height: 1.7;
       font-weight: 400;
+      animation: fade-up 0.6s ease-out 0.2s both;
     }
 
-    .hero-cta {
-      margin-top: 8px;
-      padding: 16px 36px;
+    .hero-pillars {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fade-up 0.6s ease-out 0.3s both;
+    }
+
+    .hero-pillar {
+      padding: 6px 16px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      font-size: 13px;
+      color: var(--subtle);
+      font-weight: 500;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: fade-up 0.6s ease-out 0.4s both;
+    }
+
+    .btn-primary {
+      padding: 14px 32px;
       background: var(--accent);
       color: white;
       border: none;
-      border-radius: 14px;
-      font-size: 16px;
-      font-weight: 700;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
       cursor: pointer;
       font-family: inherit;
       text-decoration: none;
@@ -185,72 +299,252 @@
       letter-spacing: 0.01em;
     }
 
-    .hero-cta:hover {
+    .btn-primary:hover {
       background: #9180f9;
       box-shadow: 0 0 40px var(--accent-glow), 0 8px 32px rgba(0,0,0,0.4);
       transform: translateY(-2px);
     }
 
-    .hero-hint {
-      font-size: 12px;
-      color: var(--dim);
-    }
-
-    /* ── Product Hunt Line ── */
-    .ph-line {
-      margin-top: 24px;
-      padding: 12px 24px;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 100px;
-      font-size: 13px;
-      color: var(--subtle);
-      font-style: italic;
-    }
-
-    .ph-line strong {
+    .btn-secondary {
+      padding: 14px 32px;
+      background: rgba(255,255,255,0.06);
       color: var(--text);
-      font-style: normal;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 500;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      display: inline-block;
+      transition: all 150ms ease;
     }
 
-    /* ── Examples Strip ── */
-    .examples {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
+    .btn-secondary:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: var(--border-h);
+      transform: translateY(-2px);
+    }
+
+    /* Hero mockup */
+    .hero-mockup {
+      position: relative;
+      z-index: 2;
       margin-top: 16px;
+      width: 100%;
+      max-width: 900px;
+      animation: fade-up 0.8s ease-out 0.5s both;
     }
 
-    .example-pill {
+    .mockup-frame {
+      background: #0d0d1e;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow:
+        0 40px 80px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 0 120px rgba(124,106,247,0.1);
+    }
+
+    .mockup-bar {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 8px 16px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 100px;
-      font-size: 13px;
-      color: var(--subtle);
-      animation: float-in 0.5s ease-out both;
+      padding: 12px 16px;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
     }
 
-    .example-pill:nth-child(1) { animation-delay: 0.1s; }
-    .example-pill:nth-child(2) { animation-delay: 0.2s; }
-    .example-pill:nth-child(3) { animation-delay: 0.3s; }
-    .example-pill:nth-child(4) { animation-delay: 0.4s; }
-    .example-pill:nth-child(5) { animation-delay: 0.5s; }
+    .mockup-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
 
-    @keyframes float-in {
-      from { opacity: 0; transform: translateY(12px); }
+    .mockup-dot-r { background: #ff5f56; }
+    .mockup-dot-y { background: #ffbd2e; }
+    .mockup-dot-g { background: #27c93f; }
+
+    .mockup-title {
+      flex: 1;
+      text-align: center;
+      font-size: 12px;
+      color: var(--dim);
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .mockup-body {
+      display: flex;
+      height: 380px;
+    }
+
+    .mockup-sidebar {
+      width: 200px;
+      background: rgba(255,255,255,0.02);
+      border-right: 1px solid rgba(255,255,255,0.06);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .mockup-folder {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 7px;
+      font-size: 12px;
+      color: rgba(238,238,245,0.6);
+      transition: background 150ms;
+    }
+
+    .mockup-folder.active {
+      background: rgba(124,106,247,0.15);
+      color: var(--text);
+      border: 1px solid rgba(124,106,247,0.25);
+    }
+
+    .mockup-folder-icon {
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+
+    .mockup-folder-info { display: flex; flex-direction: column; gap: 1px; }
+    .mockup-folder-name { font-size: 11px; font-weight: 500; }
+    .mockup-folder-cat  { font-size: 10px; color: rgba(238,238,245,0.3); }
+
+    .mockup-main {
+      flex: 1;
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mockup-atm {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 160px;
+      background: linear-gradient(180deg, rgba(124,106,247,0.12) 0%, transparent 100%);
+      pointer-events: none;
+    }
+
+    .mockup-identity {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .mockup-big-icon {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      background: rgba(124,106,247,0.18);
+      box-shadow: 0 0 24px rgba(124,106,247,0.25);
+    }
+
+    .mockup-folder-title {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+
+    .mockup-folder-sub {
+      font-size: 12px;
+      color: var(--subtle);
+      margin-top: 2px;
+    }
+
+    .mockup-stats {
+      display: flex;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .mockup-stat {
+      flex: 1;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      padding: 12px 14px;
+    }
+
+    .mockup-stat-val {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .mockup-stat-lbl {
+      font-size: 10px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 3px;
+    }
+
+    .mockup-related {
+      position: relative;
+      z-index: 1;
+    }
+
+    .mockup-related-title {
+      font-size: 10px;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 8px;
+    }
+
+    .mockup-related-items {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .mockup-rel-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-left: 2px solid rgba(124,106,247,0.4);
+      border-radius: 8px;
+      font-size: 11px;
+      color: var(--subtle);
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(20px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* ── Section ── */
-    section {
-      padding: 100px 40px;
+    /* ══════════════════════════════════
+       SECTIONS SHARED
+    ══════════════════════════════════ */
+    .section {
+      position: relative;
+      z-index: 1;
       max-width: 1100px;
       margin: 0 auto;
+      padding: 100px 48px;
     }
 
     .section-label {
@@ -260,442 +554,1104 @@
       text-transform: uppercase;
       letter-spacing: 0.15em;
       margin-bottom: 16px;
+      display: block;
     }
 
     .section-title {
-      font-size: 42px;
-      font-weight: 800;
-      letter-spacing: -0.02em;
-      line-height: 1.15;
+      font-size: clamp(32px, 4vw, 52px);
+      font-weight: 700;
+      line-height: 1.1;
       margin-bottom: 16px;
     }
 
-    .section-subtitle {
+    .section-sub {
       font-size: 17px;
       color: var(--subtle);
       max-width: 520px;
-      line-height: 1.7;
-      margin-bottom: 48px;
+      line-height: 1.75;
+      margin-bottom: 56px;
     }
 
-    /* ── Feature Grid ── */
-    .feature-grid {
+    .divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0 48px;
+    }
+
+    /* ══════════════════════════════════
+       PROBLEM SECTION
+    ══════════════════════════════════ */
+    .problem-section {
+      background: rgba(255,255,255,0.015);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .problem-inner {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 100px 48px;
+      text-align: center;
+    }
+
+    .problem-folders {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      margin: 32px 0;
+    }
+
+    .problem-folder-row {
+      font-family: monospace;
+      font-size: 15px;
+      color: var(--dim);
+      padding: 8px 20px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: all 200ms ease;
+      cursor: default;
+    }
+
+    .problem-folder-row:hover {
+      color: var(--subtle);
+      border-color: var(--border-h);
+    }
+
+    .problem-reveal {
+      margin-top: 40px;
+      font-size: clamp(24px, 3vw, 36px);
+      font-family: 'Clash Display', sans-serif;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .problem-reveal span {
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ══════════════════════════════════
+       FEATURES GRID
+    ══════════════════════════════════ */
+    .features-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
+      gap: 18px;
     }
 
     .feature-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 20px;
+      border-radius: var(--card-r);
       padding: 28px;
       display: flex;
       flex-direction: column;
       gap: 14px;
-      transition: background 200ms ease, transform 150ms ease;
+      transition: all 200ms ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(124,106,247,0.3), transparent);
+      opacity: 0;
+      transition: opacity 200ms ease;
     }
 
     .feature-card:hover {
-      background: rgba(255,255,255,0.06);
+      background: var(--bg-card-h);
+      border-color: rgba(124,106,247,0.2);
       transform: translateY(-4px);
     }
 
+    .feature-card:hover::before { opacity: 1; }
+
     .feature-icon {
-      font-size: 32px;
-      width: 56px;
-      height: 56px;
+      width: 52px; height: 52px;
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 26px;
       background: rgba(124,106,247,0.1);
-      border-radius: 14px;
+      border: 1px solid rgba(124,106,247,0.15);
     }
 
     .feature-title {
-      font-size: 18px;
-      font-weight: 700;
+      font-family: 'Clash Display', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
     }
 
     .feature-desc {
       font-size: 14px;
       color: var(--subtle);
-      line-height: 1.7;
+      line-height: 1.75;
     }
 
-    /* ── Search Section ── */
-    .search-section {
-      background: rgba(255,255,255,0.02);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
+    /* ══════════════════════════════════
+       RELATIONSHIP DIAGRAM
+    ══════════════════════════════════ */
+    .relations-section {
+      position: relative;
+      overflow: hidden;
     }
 
-    .search-section-inner {
-      max-width: 1100px;
-      margin: 0 auto;
-      padding: 100px 40px;
+    .relations-inner {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 80px;
       align-items: center;
     }
 
-    .search-example {
-      background: #0d0d1a;
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
-      font-family: monospace;
-      font-size: 13px;
+    .relations-diagram {
+      position: relative;
+      height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .search-query {
-      color: #c4b8ff;
-      margin-bottom: 16px;
-      font-size: 14px;
+    .diagram-node {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
     }
+
+    .diagram-icon {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      border: 1px solid rgba(124,106,247,0.3);
+      background: rgba(124,106,247,0.1);
+      box-shadow: 0 0 20px rgba(124,106,247,0.15);
+      transition: all 300ms ease;
+    }
+
+    .diagram-icon:hover {
+      transform: scale(1.1);
+      box-shadow: 0 0 32px rgba(124,106,247,0.35);
+    }
+
+    .diagram-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--subtle);
+      letter-spacing: 0.05em;
+      font-family: 'Clash Display', sans-serif;
+    }
+
+    /* Node positions */
+    .node-center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+    .node-tl     { top: 10%; left: 10%; }
+    .node-tr     { top: 10%; right: 10%; }
+    .node-bl     { bottom: 10%; left: 10%; }
+    .node-br     { bottom: 10%; right: 10%; }
+
+    .node-center .diagram-icon {
+      width: 72px; height: 72px;
+      font-size: 34px;
+      background: rgba(124,106,247,0.18);
+      box-shadow: 0 0 40px rgba(124,106,247,0.3);
+    }
+
+    .diagram-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .diagram-line {
+      stroke: rgba(124,106,247,0.25);
+      stroke-width: 1.5;
+      stroke-dasharray: 6 4;
+      animation: dash-move 3s linear infinite;
+    }
+
+    @keyframes dash-move {
+      to { stroke-dashoffset: -20; }
+    }
+
+    /* ══════════════════════════════════
+       SEARCH SECTION
+    ══════════════════════════════════ */
+    .search-section {
+      background: rgba(255,255,255,0.015);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .search-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 100px 48px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    .search-demo {
+      background: #0a0a18;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px;
+      background: rgba(124,106,247,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .search-icon { font-size: 16px; opacity: 0.5; }
+
+    .search-text {
+      font-size: 15px;
+      color: #c4b8ff;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    .search-cursor {
+      width: 2px; height: 18px;
+      background: var(--accent);
+      animation: blink 1s step-end infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    .search-results { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
 
     .search-result {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 8px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.05);
-      color: var(--subtle);
-      font-size: 12px;
+      gap: 12px;
+      padding: 10px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 150ms ease;
+      animation: slide-in 0.4s ease-out both;
     }
 
-    .search-result:last-child { border-bottom: none; }
-    .search-result-icon { font-size: 16px; }
+    .search-result:nth-child(1) { animation-delay: 0.1s; }
+    .search-result:nth-child(2) { animation-delay: 0.2s; }
+    .search-result:nth-child(3) { animation-delay: 0.3s; }
+    .search-result:nth-child(4) { animation-delay: 0.4s; }
 
-    /* ── Privacy Section ── */
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateX(-10px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .search-result:hover {
+      background: rgba(124,106,247,0.08);
+      border-color: rgba(124,106,247,0.2);
+    }
+
+    .result-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .result-info { flex: 1; overflow: hidden; }
+
+    .result-name {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-path {
+      font-size: 11px;
+      color: var(--dim);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .result-type {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .type-pdf  { background: rgba(239,68,68,0.15);  color: #fca5a5; }
+    .type-pptx { background: rgba(249,115,22,0.15); color: #fdba74; }
+    .type-docx { background: rgba(59,130,246,0.15); color: #93c5fd; }
+    .type-xlsx { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+
+    /* ══════════════════════════════════
+       PRIVACY
+    ══════════════════════════════════ */
     .privacy-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-top: 48px;
+      gap: 18px;
     }
 
     .privacy-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 24px;
+      border-radius: var(--card-r);
+      padding: 28px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 12px;
+      transition: all 200ms ease;
     }
 
-    .privacy-icon { font-size: 24px; }
-
-    .privacy-title {
-      font-size: 15px;
-      font-weight: 600;
+    .privacy-card:hover {
+      background: var(--bg-card-h);
+      border-color: rgba(124,106,247,0.2);
+      transform: translateY(-3px);
     }
 
-    .privacy-desc {
+    .privacy-icon { font-size: 28px; }
+    .privacy-title { font-family: 'Clash Display', sans-serif; font-size: 18px; font-weight: 600; }
+    .privacy-desc  { font-size: 14px; color: var(--subtle); line-height: 1.7; }
+
+    .germany-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 100px;
       font-size: 13px;
       color: var(--subtle);
-      line-height: 1.6;
+      margin-bottom: 40px;
     }
 
-    /* ── Vision Section ── */
-    .vision-section {
-      text-align: center;
-      padding: 100px 40px;
-      max-width: 800px;
-      margin: 0 auto;
+    /* ══════════════════════════════════
+       ROADMAP
+    ══════════════════════════════════ */
+    .roadmap-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
     }
 
-    .vision-title {
-      font-size: 48px;
-      font-weight: 900;
-      letter-spacing: -0.03em;
-      line-height: 1.1;
-      margin-bottom: 24px;
-      background: linear-gradient(135deg, #f0f0f8 0%, rgba(240,240,248,0.6) 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+    .roadmap-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--card-r);
+      padding: 28px;
     }
 
-    .vision-pillars {
+    .roadmap-card-title {
+      font-family: 'Clash Display', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 20px;
+    }
+
+    .roadmap-item {
       display: flex;
-      justify-content: center;
+      align-items: center;
       gap: 12px;
-      flex-wrap: wrap;
-      margin: 32px 0;
-    }
-
-    .vision-pillar {
-      padding: 8px 20px;
-      background: rgba(124,106,247,0.1);
-      border: 1px solid rgba(124,106,247,0.2);
-      border-radius: 100px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
       font-size: 14px;
-      font-weight: 500;
-      color: #c4b8ff;
     }
 
-    /* ── Final CTA ── */
+    .roadmap-item:last-child { border-bottom: none; }
+
+    .roadmap-check {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+    }
+
+    .check-done { background: rgba(16,185,129,0.2); color: #6ee7b7; }
+    .check-soon { background: rgba(124,106,247,0.15); color: #b8b0ff; border: 1px dashed rgba(124,106,247,0.3); }
+
+    /* ══════════════════════════════════
+       FEEDBACK
+    ══════════════════════════════════ */
+    .feedback-section {
+      background: rgba(255,255,255,0.015);
+      border-top: 1px solid var(--border);
+    }
+
+    .feedback-inner {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 100px 48px;
+      text-align: center;
+    }
+
+    .feedback-form {
+      margin-top: 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      text-align: left;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .form-input, .form-textarea {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 12px 16px;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 150ms ease, background 150ms ease;
+      width: 100%;
+    }
+
+    .form-input:focus, .form-textarea:focus {
+      border-color: rgba(124,106,247,0.5);
+      background: rgba(124,106,247,0.04);
+    }
+
+    .form-textarea { min-height: 120px; resize: vertical; }
+
+    .form-submit {
+      padding: 13px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 150ms ease;
+      margin-top: 4px;
+    }
+
+    .form-submit:hover {
+      background: #9180f9;
+      box-shadow: 0 0 24px var(--accent-glow);
+      transform: translateY(-1px);
+    }
+
+    .form-success {
+      display: none;
+      text-align: center;
+      padding: 24px;
+      background: rgba(16,185,129,0.08);
+      border: 1px solid rgba(16,185,129,0.2);
+      border-radius: 12px;
+      color: #6ee7b7;
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    /* ══════════════════════════════════
+       FINAL CTA
+    ══════════════════════════════════ */
     .final-cta {
       text-align: center;
-      padding: 100px 40px;
-      background: rgba(124,106,247,0.04);
-      border-top: 1px solid var(--border);
+      padding: 120px 48px;
+      position: relative;
+      overflow: hidden;
     }
 
-    .final-cta-title {
-      font-size: 36px;
-      font-weight: 800;
+    .final-orb {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px; height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(ellipse, rgba(124,106,247,0.12) 0%, transparent 70%);
+      filter: blur(60px);
+      pointer-events: none;
+    }
+
+    .final-cta-content { position: relative; z-index: 1; }
+
+    .final-title {
+      font-size: clamp(32px, 4vw, 52px);
+      font-weight: 700;
       margin-bottom: 16px;
-      letter-spacing: -0.02em;
+      line-height: 1.1;
     }
 
-    .final-cta-sub {
-      font-size: 16px;
+    .final-sub {
+      font-size: 17px;
       color: var(--subtle);
-      margin-bottom: 32px;
+      margin-bottom: 36px;
     }
 
-    /* ── Footer ── */
+    /* ══════════════════════════════════
+       FOOTER
+    ══════════════════════════════════ */
     footer {
-      text-align: center;
-      padding: 32px 40px;
       border-top: 1px solid var(--border);
-      font-size: 12px;
+      padding: 32px 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
       color: var(--dim);
     }
 
-    /* ── Responsive ── */
-    @media (max-width: 768px) {
-      .hero-title   { font-size: 40px; }
-      .feature-grid { grid-template-columns: 1fr; }
-      .privacy-grid { grid-template-columns: 1fr; }
-      .search-section-inner { grid-template-columns: 1fr; gap: 40px; }
-      nav { padding: 16px 20px; }
-      section { padding: 60px 20px; }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
     }
+
+    footer a:hover { color: #9180f9; }
+
+    /* ══════════════════════════════════
+       SCROLL ANIMATIONS
+    ══════════════════════════════════ */
+    .reveal {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ══════════════════════════════════
+       RESPONSIVE
+    ══════════════════════════════════ */
+    @media (max-width: 768px) {
+      nav { padding: 0 20px; }
+      nav .nav-links { display: none; }
+      .hero { padding: 100px 24px 60px; }
+      .section { padding: 60px 24px; }
+      .features-grid, .privacy-grid, .roadmap-grid { grid-template-columns: 1fr; }
+      .relations-inner, .search-inner { grid-template-columns: 1fr; }
+      .relations-diagram { display: none; }
+      footer { flex-direction: column; gap: 12px; text-align: center; }
+    }
+
   </style>
 </head>
 <body>
 
-  <!-- Nav -->
-  <nav>
-    <div class="nav-logo">
-      <span>🌟</span>
-      <span>HALO</span>
-    </div>
-    <a href="#waitlist" class="nav-cta">Join Waitlist</a>
+  <!-- ── NAV ── -->
+  <nav id="navbar">
+    <a href="#" class="nav-logo">
+      <div class="nav-logo-orb"></div>
+      HALO
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#search">Search</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+      <li><a href="#feedback">Feedback</a></li>
+      <li><a href="https://github.com/shariquetelco/halo-desktop" target="_blank" class="nav-cta">GitHub →</a></li>
+    </ul>
   </nav>
 
-  <!-- Hero -->
+  <!-- ── HERO ── -->
   <div class="hero">
-    <div class="hero-orb"></div>
-    <div class="hero-mesh"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
 
-    <div class="hero-content">
-      <div class="hero-badge">🌟 Now in development — macOS first</div>
+    <div class="hero-inner">
+      <div class="hero-badge">🌟 Early Access — macOS First</div>
 
-      <h1 class="hero-title">Your folders deserve<br>more than names.</h1>
+      <h1 class="hero-title">
+        Your computer<br>remembers files.<br>
+        <em style="font-style:normal; background: linear-gradient(135deg, #9180f9, #f43f8e); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">HALO remembers meaning.</em>
+      </h1>
 
-      <p class="hero-subtitle">
-        HALO gives every folder an identity, remembers what matters,
-        and helps you find knowledge across your computer.
+      <p class="hero-sub">
+        Identity, relationships and private search for everything on your computer.
+        No cloud. No subscriptions. Fully local.
       </p>
 
-      <a href="#waitlist" class="hero-cta">Join the Waitlist</a>
-      <p class="hero-hint">Free to try. macOS first. Windows coming soon.</p>
-
-      <div class="ph-line">
-        <strong>What if Google Desktop came back in 2026?</strong><br>
-        Private, local-first, and built for modern files.
+      <div class="hero-pillars">
+        <span class="hero-pillar">🎨 Identity</span>
+        <span class="hero-pillar">🧠 Memory</span>
+        <span class="hero-pillar">🔗 Relationships</span>
+        <span class="hero-pillar">🔍 Search Inside Files</span>
+        <span class="hero-pillar">🛡️ 100% Local</span>
       </div>
 
-      <div class="examples">
-        <div class="example-pill">🛰️ SATURN</div>
-        <div class="example-pill">🌴 Vacation 2026</div>
-        <div class="example-pill">📄 Taxes</div>
-        <div class="example-pill">🔒 NOVASEC</div>
-        <div class="example-pill">🎓 MBA Applications</div>
+      <div class="hero-actions">
+        <a href="https://github.com/shariquetelco/halo-desktop" target="_blank" class="btn-primary">
+          Download Beta →
+        </a>
+        <a href="#features" class="btn-secondary">See How It Works</a>
+      </div>
+
+      <p style="font-size:13px; color: var(--dim); font-style: italic; margin-top: -8px;">
+        What if Google Desktop came back in 2026? Private, local-first, built for modern files.
+      </p>
+    </div>
+
+    <!-- App Mockup -->
+    <div class="hero-mockup">
+      <div class="mockup-frame">
+        <div class="mockup-bar">
+          <div class="mockup-dot mockup-dot-r"></div>
+          <div class="mockup-dot mockup-dot-y"></div>
+          <div class="mockup-dot mockup-dot-g"></div>
+          <div class="mockup-title">HALO — Give every folder an identity</div>
+        </div>
+        <div class="mockup-body">
+          <div class="mockup-sidebar">
+            <div class="mockup-folder active">
+              <div class="mockup-folder-icon" style="background:rgba(124,106,247,0.2)">🛰️</div>
+              <div class="mockup-folder-info">
+                <div class="mockup-folder-name">SATURN</div>
+                <div class="mockup-folder-cat">Telecom & Space</div>
+              </div>
+            </div>
+            <div class="mockup-folder">
+              <div class="mockup-folder-icon" style="background:rgba(239,68,68,0.2)">🔒</div>
+              <div class="mockup-folder-info">
+                <div class="mockup-folder-name">NOVASEC</div>
+                <div class="mockup-folder-cat">Security</div>
+              </div>
+            </div>
+            <div class="mockup-folder">
+              <div class="mockup-folder-icon" style="background:rgba(16,185,129,0.2)">🌴</div>
+              <div class="mockup-folder-info">
+                <div class="mockup-folder-name">Croatia Trip</div>
+                <div class="mockup-folder-cat">Travel</div>
+              </div>
+            </div>
+            <div class="mockup-folder">
+              <div class="mockup-folder-icon" style="background:rgba(202,138,4,0.2)">🎓</div>
+              <div class="mockup-folder-info">
+                <div class="mockup-folder-name">MBA</div>
+                <div class="mockup-folder-cat">Education</div>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-main">
+            <div class="mockup-atm"></div>
+            <div class="mockup-identity">
+              <div class="mockup-big-icon">🛰️</div>
+              <div>
+                <div class="mockup-folder-title">SATURN</div>
+                <div class="mockup-folder-sub">Telecom & Space · ESA Satellite Resilience Project</div>
+              </div>
+            </div>
+            <div class="mockup-stats">
+              <div class="mockup-stat">
+                <div class="mockup-stat-val">42</div>
+                <div class="mockup-stat-lbl">Files</div>
+              </div>
+              <div class="mockup-stat">
+                <div class="mockup-stat-val">8</div>
+                <div class="mockup-stat-lbl">Folders</div>
+              </div>
+              <div class="mockup-stat">
+                <div class="mockup-stat-val">2d</div>
+                <div class="mockup-stat-lbl">Last Modified</div>
+              </div>
+            </div>
+            <div class="mockup-related">
+              <div class="mockup-related-title">Related Folders</div>
+              <div class="mockup-related-items">
+                <div class="mockup-rel-item">🔒 NOVASEC &nbsp;·&nbsp; Security & Defense</div>
+                <div class="mockup-rel-item">💼 Nokia Reference &nbsp;·&nbsp; Work & Business</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Features -->
-  <section>
-    <div class="section-label">What HALO does</div>
-    <h2 class="section-title">Identity. Memory. Relationships.</h2>
-    <p class="section-subtitle">
-      Every folder you create tells a story. HALO helps you read it.
-    </p>
+  <!-- ── PROBLEM ── -->
+  <div class="problem-section">
+    <div class="problem-inner reveal">
+      <span class="section-label">The Problem</span>
+      <h2 class="section-title">You remember the project.<br>You don't remember where you saved it.</h2>
+      <div class="problem-folders">
+        <div class="problem-folder-row">SATURN_Final_v2</div>
+        <div class="problem-folder-row">SATURN_Final_v3</div>
+        <div class="problem-folder-row">SATURN_Final_v4_REAL</div>
+        <div class="problem-folder-row">SATURN_Final_v4_REAL_FINAL</div>
+      </div>
+      <div class="problem-reveal">
+        Your folders have names.<br>
+        <span>But names aren't memory.</span>
+      </div>
+    </div>
+  </div>
 
-    <div class="feature-grid">
-      <div class="feature-card">
-        <div class="feature-icon">🎨</div>
-        <div class="feature-title">Smart Identity</div>
-        <div class="feature-desc">
-          HALO automatically assigns icons, colors, and categories to your folders.
-          250+ icons. 40 colors. 20 gradients. You can always override.
+  <!-- ── FEATURES ── -->
+  <div id="features">
+    <div class="section reveal">
+      <span class="section-label">What HALO does</span>
+      <h2 class="section-title">Identity. Memory.<br>Relationships. Search.</h2>
+      <p class="section-sub">Every folder you create tells a story. HALO helps you read it — without opening a single file.</p>
+
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">🎨</div>
+          <div class="feature-title">Smart Identity</div>
+          <div class="feature-desc">HALO automatically assigns icons, colors, and categories from the folder name. 250+ icons. 40 colors. 20 gradients. HALO suggests. You decide.</div>
         </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🧠</div>
-        <div class="feature-title">Folder Memory</div>
-        <div class="feature-desc">
-          Add a description, track file counts, see last activity.
-          Open a folder after 8 months and instantly know what it contains.
+        <div class="feature-card">
+          <div class="feature-icon">🧠</div>
+          <div class="feature-title">Folder Memory</div>
+          <div class="feature-desc">Add a description, see file counts, track last activity. Open a folder after 8 months and instantly know what it contains and why it exists.</div>
         </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔗</div>
-        <div class="feature-title">Relationships</div>
-        <div class="feature-desc">
-          HALO connects related folders automatically. SATURN links to NOVASEC.
-          MBA links to Finance. You can add or remove any relationship.
+        <div class="feature-card">
+          <div class="feature-icon">🔗</div>
+          <div class="feature-title">Relationships</div>
+          <div class="feature-desc">HALO connects related folders automatically. SATURN links to NOVASEC. MBA links to Finance. Remove suggestions you don't need. Add your own.</div>
         </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🔍</div>
-        <div class="feature-title">Search Inside Files</div>
-        <div class="feature-desc">
-          Not just filenames. HALO indexes PDFs, Word docs, PowerPoints,
-          spreadsheets, and code. Find knowledge, not just files.
+        <div class="feature-card">
+          <div class="feature-icon">🔍</div>
+          <div class="feature-title">Search Inside Files</div>
+          <div class="feature-desc">Not just filenames. HALO indexes PDFs, Word docs, PowerPoints, spreadsheets, notes and code. Find knowledge, not files. Fully local.</div>
         </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">⚡</div>
-        <div class="feature-title">Instant & Local</div>
-        <div class="feature-desc">
-          Everything runs on your device. No cloud processing. No uploads.
-          Results appear in milliseconds from a local index.
+        <div class="feature-card">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-title">Instant Results</div>
+          <div class="feature-desc">Everything runs on your device. No cloud processing. No uploads. Search results appear in milliseconds from a local SQLite index.</div>
         </div>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">🛡️</div>
-        <div class="feature-title">Private by Design</div>
-        <div class="feature-desc">
-          No account required. No telemetry. No internet needed after install.
-          Your data never leaves your computer. Ever.
+        <div class="feature-card">
+          <div class="feature-icon">🪟</div>
+          <div class="feature-title">Cross Platform</div>
+          <div class="feature-desc">Built with Tauri for macOS first. Windows support is coming. One codebase. Two platforms. Same identity engine. Same local index.</div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- Search Section -->
-  <div class="search-section">
-    <div class="search-section-inner">
+  <div class="divider"></div>
+
+  <!-- ── RELATIONSHIPS ── -->
+  <div class="section relations-section reveal">
+    <div class="relations-inner">
       <div>
-        <div class="section-label">Search beyond filenames</div>
+        <span class="section-label">Relationships</span>
+        <h2 class="section-title">Projects are connected.<br>Your folders should be too.</h2>
+        <p class="section-sub">HALO detects relationships between your folders based on category and shared keywords. Click any related folder to jump straight to its identity card.</p>
+        <p style="font-size:13px; color: var(--dim); font-style: italic;">HALO suggests. You always decide what stays.</p>
+      </div>
+      <div class="relations-diagram">
+        <svg class="diagram-svg" viewBox="0 0 400 320">
+          <line class="diagram-line" x1="200" y1="160" x2="80"  y2="60"  />
+          <line class="diagram-line" x1="200" y1="160" x2="320" y2="60"  />
+          <line class="diagram-line" x1="200" y1="160" x2="80"  y2="260" />
+          <line class="diagram-line" x1="200" y1="160" x2="320" y2="260" />
+        </svg>
+        <div class="diagram-node node-center">
+          <div class="diagram-icon">🛰️</div>
+          <div class="diagram-label">SATURN</div>
+        </div>
+        <div class="diagram-node node-tl">
+          <div class="diagram-icon" style="background:rgba(239,68,68,0.1);border-color:rgba(239,68,68,0.3)">🔒</div>
+          <div class="diagram-label">NOVASEC</div>
+        </div>
+        <div class="diagram-node node-tr">
+          <div class="diagram-icon" style="background:rgba(124,106,247,0.1)">💼</div>
+          <div class="diagram-label">NOKIA</div>
+        </div>
+        <div class="diagram-node node-bl">
+          <div class="diagram-icon" style="background:rgba(202,138,4,0.1);border-color:rgba(202,138,4,0.3)">🎓</div>
+          <div class="diagram-label">MBA</div>
+        </div>
+        <div class="diagram-node node-br">
+          <div class="diagram-icon" style="background:rgba(16,185,129,0.1);border-color:rgba(16,185,129,0.3)">🔬</div>
+          <div class="diagram-label">RESEARCH</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- ── SEARCH ── -->
+  <div class="search-section" id="search">
+    <div class="search-inner reveal">
+      <div>
+        <span class="section-label">Search beyond filenames</span>
         <h2 class="section-title">Find knowledge,<br>not just files.</h2>
-        <p class="section-subtitle">
-          Type what you remember — a topic, a phrase, a project name.
+        <p class="section-sub">
+          Type what you remember — a topic, a phrase, a name.
           HALO searches inside your documents, not just their names.
-          PDFs, Word docs, PowerPoints, spreadsheets, code files, notes.
         </p>
-        <p style="font-size:13px; color: rgba(255,255,255,0.3); font-style: italic;">
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top: 24px;">
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--subtle)">
+            <span style="color:#6ee7b7">✓</span> PDF documents
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--subtle)">
+            <span style="color:#6ee7b7">✓</span> Word documents
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--subtle)">
+            <span style="color:#6ee7b7">✓</span> PowerPoint presentations
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--subtle)">
+            <span style="color:#6ee7b7">✓</span> Excel spreadsheets
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--subtle)">
+            <span style="color:#6ee7b7">✓</span> Text files, Markdown, Code
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--dim)">
+            <span style="color:#b8b0ff">◌</span> OCR for images and scanned PDFs (coming soon)
+          </div>
+        </div>
+        <p style="font-size:12px;color:var(--dim);margin-top:24px;font-style:italic;">
           Coming in v0.4 — Index selected folders first, entire Mac later.
         </p>
       </div>
-      <div class="search-example">
-        <div class="search-query">🔍 "NTN security resilience"</div>
-        <div class="search-result">
-          <span class="search-result-icon">📄</span>
-          ESA_NTN_Security_Architecture.pdf
+      <div class="search-demo">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <span class="search-text">Ericsson resilience NTN</span>
+          <div class="search-cursor"></div>
         </div>
-        <div class="search-result">
-          <span class="search-result-icon">📊</span>
-          NOVASEC_Deliverable_WP2.pptx
-        </div>
-        <div class="search-result">
-          <span class="search-result-icon">📝</span>
-          Meeting_Notes_Berlin.docx
-        </div>
-        <div class="search-result">
-          <span class="search-result-icon">📋</span>
-          Risk_Analysis_v3.xlsx
+        <div class="search-results">
+          <div class="search-result">
+            <div class="result-icon" style="background:rgba(239,68,68,0.1)">📄</div>
+            <div class="result-info">
+              <div class="result-name">ESA_NTN_Security_Architecture.pdf</div>
+              <div class="result-path">SATURN / Deliverables</div>
+            </div>
+            <div class="result-type type-pdf">PDF</div>
+          </div>
+          <div class="search-result">
+            <div class="result-icon" style="background:rgba(249,115,22,0.1)">📊</div>
+            <div class="result-info">
+              <div class="result-name">NOVASEC_WP2_Architecture.pptx</div>
+              <div class="result-path">NOVASEC / Presentations</div>
+            </div>
+            <div class="result-type type-pptx">PPTX</div>
+          </div>
+          <div class="search-result">
+            <div class="result-icon" style="background:rgba(59,130,246,0.1)">📝</div>
+            <div class="result-info">
+              <div class="result-name">Meeting_Notes_Berlin_2026.docx</div>
+              <div class="result-path">Nokia Reference / Meetings</div>
+            </div>
+            <div class="result-type type-docx">DOCX</div>
+          </div>
+          <div class="search-result">
+            <div class="result-icon" style="background:rgba(16,185,129,0.1)">📋</div>
+            <div class="result-info">
+              <div class="result-name">Risk_Analysis_v3.xlsx</div>
+              <div class="result-path">SATURN / Analysis</div>
+            </div>
+            <div class="result-type type-xlsx">XLSX</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Privacy -->
-  <section>
-    <div class="section-label">Privacy first</div>
-    <h2 class="section-title">Your computer.<br>Your data. Always.</h2>
-    <p class="section-subtitle">
-      HALO was built with one rule: nothing leaves your device.
-    </p>
-
-    <div class="privacy-grid">
-      <div class="privacy-card">
-        <div class="privacy-icon">🔒</div>
-        <div class="privacy-title">No cloud processing</div>
-        <div class="privacy-desc">
-          Every index, every search, every result runs locally.
-          Your files never touch a server.
+  <!-- ── PRIVACY ── -->
+  <div>
+    <div class="section reveal">
+      <div class="germany-badge">🇩🇪 Built in Germany &nbsp;·&nbsp; Private by Design</div>
+      <span class="section-label">Privacy first</span>
+      <h2 class="section-title">Your computer.<br>Your data. Always.</h2>
+      <p class="section-sub">HALO was built with one rule: nothing leaves your device.</p>
+      <div class="privacy-grid">
+        <div class="privacy-card">
+          <div class="privacy-icon">🔒</div>
+          <div class="privacy-title">No cloud processing</div>
+          <div class="privacy-desc">Every index, every search, every result runs locally on your machine. Your files never touch a server.</div>
         </div>
-      </div>
-      <div class="privacy-card">
-        <div class="privacy-icon">📡</div>
-        <div class="privacy-title">No internet required</div>
-        <div class="privacy-desc">
-          After installation, HALO works fully offline.
-          No API calls. No telemetry. No analytics.
+        <div class="privacy-card">
+          <div class="privacy-icon">📡</div>
+          <div class="privacy-title">No internet required</div>
+          <div class="privacy-desc">After installation, HALO works fully offline. No API calls. No telemetry. No analytics. No account required.</div>
         </div>
-      </div>
-      <div class="privacy-card">
-        <div class="privacy-icon">🗄️</div>
-        <div class="privacy-title">Local index only</div>
-        <div class="privacy-desc">
-          Your search index lives at:<br>
-          <code style="font-size:11px;color:#c4b8ff;">
-            ~/Library/Application Support/HALO/
-          </code>
+        <div class="privacy-card">
+          <div class="privacy-icon">🗄️</div>
+          <div class="privacy-title">Local index only</div>
+          <div class="privacy-desc">Your search index lives at<br><code style="font-size:11px;color:#b8b0ff;background:rgba(124,106,247,0.1);padding:2px 6px;border-radius:4px">~/Library/Application Support/HALO/</code></div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
 
-  <!-- Vision -->
-  <div class="vision-section">
-    <div class="section-label">The bigger picture</div>
-    <h2 class="vision-title">HALO is a memory layer<br>for your computer.</h2>
-    <div class="vision-pillars">
-      <div class="vision-pillar">🎨 Identity for folders</div>
-      <div class="vision-pillar">🧠 Memory for projects</div>
-      <div class="vision-pillar">🔗 Relationships between work</div>
-      <div class="vision-pillar">🔍 Search across your knowledge</div>
-      <div class="vision-pillar">🛡️ Always local. Always private.</div>
+  <div class="divider"></div>
+
+  <!-- ── ROADMAP ── -->
+  <div id="roadmap">
+    <div class="section reveal">
+      <span class="section-label">Roadmap</span>
+      <h2 class="section-title">Where HALO is going.</h2>
+      <p class="section-sub">Built in public. Shipping fast. Every week something new.</p>
+
+      <div class="roadmap-grid">
+        <div class="roadmap-card">
+          <div class="roadmap-card-title">✓ Shipped</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> Smart folder identity (icon + color)</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> Folder memory and descriptions</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> Folder relationships engine</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> 250+ icons, 40 colors, 20 gradients</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> Sidebar memory stats</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> Delete with confirmation</div>
+          <div class="roadmap-item"><div class="roadmap-check check-done">✓</div> Search foundation (search.ts)</div>
+        </div>
+        <div class="roadmap-card">
+          <div class="roadmap-card-title">◌ Coming Soon</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> Finder folder icon integration</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> Full text document search</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> Light theme + system theme</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> Windows support</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> OCR for images + scanned PDFs</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> Free / Pro pricing ($9 lifetime)</div>
+          <div class="roadmap-item"><div class="roadmap-check check-soon">◌</div> Auto folder monitoring</div>
+        </div>
+      </div>
     </div>
-    <p style="font-size:16px; color: var(--subtle); line-height: 1.8; max-width: 560px; margin: 0 auto;">
-      Operating systems give you folders with names and dates.
-      HALO gives them identity, context, and memory.
-      Your files already store your work.
-      HALO helps them tell their story.
-    </p>
   </div>
 
-  <!-- Final CTA -->
-  <div class="final-cta" id="waitlist">
-    <h2 class="final-cta-title">Be the first to try HALO.</h2>
-    <p class="final-cta-sub">macOS first. Free during early access. Windows coming soon.</p>
-    <a href="https://github.com/shariquetelco/halo-desktop"
-       target="_blank"
-       class="hero-cta">
-      Follow on GitHub →
-    </a>
+  <div class="divider"></div>
+
+  <!-- ── FEEDBACK ── -->
+  <div class="feedback-section" id="feedback">
+    <div class="feedback-inner reveal">
+      <span class="section-label">Feedback</span>
+      <h2 class="section-title">Help shape HALO.</h2>
+      <p class="section-sub">Have an idea? Found a bug? Want a feature? Every message is read personally.</p>
+
+      <form class="feedback-form" action="https://formspree.io/f/mvzvzjbw" method="POST" id="feedback-form">
+        <div class="form-group">
+          <label class="form-label" for="name">Name</label>
+          <input class="form-input" type="text" id="name" name="name" placeholder="Your name" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-input" type="email" id="email" name="email" placeholder="your@email.com" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="message">Message</label>
+          <textarea class="form-textarea" id="message" name="message" placeholder="Share your thoughts, ideas, or bugs..." required></textarea>
+        </div>
+        <button class="form-submit" type="submit">Send Feedback →</button>
+        <div class="form-success" id="form-success">
+          ✓ &nbsp; Thank you. Message received. I'll reply personally.
+        </div>
+      </form>
+    </div>
   </div>
 
-  <!-- Footer -->
+  <!-- ── FINAL CTA ── -->
+  <div class="final-cta reveal">
+    <div class="final-orb"></div>
+    <div class="final-cta-content">
+      <h2 class="final-title">Be the first to try HALO.</h2>
+      <p class="final-sub">macOS first. Free during early access. Windows coming soon.</p>
+      <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap">
+        <a href="https://github.com/shariquetelco/halo-desktop" target="_blank" class="btn-primary">
+          Follow on GitHub →
+        </a>
+        <a href="#feedback" class="btn-secondary">Send Feedback</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── FOOTER ── -->
   <footer>
-    <p>HALO — Give every folder an identity. &nbsp;·&nbsp; Built by Shariq &nbsp;·&nbsp;
-      <a href="https://github.com/shariquetelco/halo-desktop"
-         style="color: var(--accent); text-decoration: none;">
-        GitHub
-      </a>
-    </p>
+    <div>HALO — Give every folder an identity. &nbsp;🇩🇪 Built in Germany.</div>
+    <div>
+      <a href="https://github.com/shariquetelco/halo-desktop" target="_blank">GitHub</a>
+      &nbsp;·&nbsp;
+      <a href="#feedback">Feedback</a>
+      &nbsp;·&nbsp;
+      <span style="color:var(--dim)">© 2026 HALO</span>
+    </div>
   </footer>
+
+  <script>
+    // ── Nav scroll effect ──
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      navbar.classList.toggle('scrolled', window.scrollY > 40);
+    });
+
+    // ── Scroll reveal ──
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.1 });
+    reveals.forEach(el => observer.observe(el));
+
+    // ── Form submit ──
+    const form = document.getElementById('feedback-form');
+    const success = document.getElementById('form-success');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = new FormData(form);
+      const res = await fetch(form.action, {
+        method: 'POST',
+        body: data,
+        headers: { 'Accept': 'application/json' }
+      });
+      if (res.ok) {
+        form.reset();
+        success.style.display = 'block';
+        setTimeout(() => { success.style.display = 'none'; }, 5000);
+      }
+    });
+  </script>
 
 </body>
 </html>
