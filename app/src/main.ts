@@ -4,6 +4,7 @@
 // ─────────────────────────────────────────
 
 import { open } from "@tauri-apps/plugin-dialog";
+import { invoke } from "@tauri-apps/api/core";
 import { getIdentity, getAllIcons, getAllColors, getDefaultRecentIcons, FolderIdentity } from "./identity";
 import { scanFolder } from "./scanner";
 import { saveFolder, loadAllFolders, deleteFolder, FolderRecord } from "./storage";
@@ -35,7 +36,7 @@ const statFolders       = document.getElementById("stat-folders")!;
 const statModified      = document.getElementById("stat-modified")!;
 const changeIconBtn     = document.getElementById("change-icon-btn")!;
 const changeColorBtn    = document.getElementById("change-color-btn")!;
-
+const applyFinderBtn    = document.getElementById("apply-finder-btn")!;
 // ── Startup ──
 async function init(): Promise<void> {
   folders = await loadAllFolders();
@@ -824,6 +825,115 @@ changeColorBtn.addEventListener("click", () => {
   overlay.appendChild(panel);
   overlay.addEventListener("click", (e) => { if (e.target === overlay) document.body.removeChild(overlay); });
   document.body.appendChild(overlay);
+});
+
+// ── Apply to Finder ──
+applyFinderBtn.addEventListener("click", () => {
+  if (!activeFolderPath) return;
+
+  const folder = folders.find(f => f.path === activeFolderPath);
+  if (!folder) return;
+
+  // Safety confirmation
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+
+  const dialog = document.createElement("div");
+  dialog.style.cssText = `
+    background: #13131f;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 28px;
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    animation: scale-in 150ms ease-out;
+  `;
+
+  dialog.innerHTML = `
+    <div style="font-size:24px;text-align:center;">🖥️</div>
+    <div style="font-size:16px;font-weight:700;color:#f0f0f8;text-align:center;">
+      Apply icon to Finder?
+    </div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.5);text-align:center;line-height:1.7;">
+      This will change the icon displayed in Finder for:<br>
+      <strong style="color:rgba(255,255,255,0.8);">${folder.name}</strong><br><br>
+      No files will be changed or deleted.<br>
+      The folder remains exactly as it is.
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button id="finder-cancel" style="
+        flex:1;padding:10px;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.1);
+        border-radius:10px;color:rgba(255,255,255,0.7);
+        font-size:13px;font-weight:500;
+        cursor:pointer;font-family:inherit;
+      ">Cancel</button>
+      <button id="finder-apply" style="
+        flex:1;padding:10px;
+        background:rgba(16,185,129,0.15);
+        border:1px solid rgba(16,185,129,0.3);
+        border-radius:10px;color:#6ee7b7;
+        font-size:13px;font-weight:600;
+        cursor:pointer;font-family:inherit;
+      ">Apply to Finder</button>
+    </div>
+    <div id="finder-status" style="
+      text-align:center;font-size:13px;
+      color:rgba(255,255,255,0.4);
+      display:none;
+    ">Applying...</div>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  const cancelBtn = dialog.querySelector("#finder-cancel") as HTMLButtonElement;
+  const applyBtn  = dialog.querySelector("#finder-apply") as HTMLButtonElement;
+  const status    = dialog.querySelector("#finder-status") as HTMLDivElement;
+
+  cancelBtn.addEventListener("click", () => {
+    document.body.removeChild(overlay);
+  });
+
+  applyBtn.addEventListener("click", async () => {
+    applyBtn.style.display  = "none";
+    cancelBtn.style.display = "none";
+    status.style.display    = "block";
+    status.textContent      = "Applying icon to Finder...";
+
+    // Icon path — using test icon for Day 8
+    // Day 9: generate emoji PNG dynamically
+    const iconPath = "/Users/sharique/App_Shariq/HALO/assets/test-icon.png";
+
+    try {
+      const result = await invoke<string>("apply_finder_icon", {
+        folderPath: activeFolderPath,
+        iconPath:   iconPath,
+      });
+
+      status.style.color   = "#6ee7b7";
+      status.textContent   = "✓ Icon applied. Check Finder.";
+
+      setTimeout(() => {
+        document.body.removeChild(overlay);
+      }, 2000);
+
+    } catch (error) {
+      status.style.color = "#fca5a5";
+      status.textContent = `Error: ${error}`;
+      setTimeout(() => {
+        document.body.removeChild(overlay);
+      }, 3000);
+    }
+  });
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) document.body.removeChild(overlay);
+  });
 });
 
 // ── Add Description ──
