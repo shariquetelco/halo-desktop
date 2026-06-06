@@ -1297,7 +1297,7 @@ indexBtn.addEventListener("click", async (e) => {
   if (!indexDropdown.classList.contains("hidden")) {
     try {
       const stats = await invoke<any>("get_index_stats", {});
-      statIndexedFiles.textContent   = stats.files.toString();
+      statIndexedFiles.textContent   = stats.files.toLocaleString();
       statIndexedFolders.textContent = stats.folders.toString();
     } catch (err) {
       console.error("Stats error:", err);
@@ -1324,14 +1324,14 @@ reindexBtn.addEventListener("click", async () => {
 
 
 
-  const unlistenProgress = await listen("index-progress", (event: any) => {
+  const unlistenProgress = await listen<any>("index-progress", (event) => {
     const data = event.payload;
     const folderName = data.folder.split("/").filter(Boolean).pop() || data.folder;
-    reindexBtn.textContent = `⟳ ${folderName}: ${data.indexed}/${data.total} files`;
-    statIndexedFiles.textContent = data.indexed.toLocaleString();
+    reindexBtn.textContent = `⟳ ${folderName}: ${data.indexed} files`;
+    statIndexedFiles.textContent = String(data.indexed);
   });
 
-  const unlistenComplete = await listen("index-complete", async (event: any) => {
+  const unlistenComplete = await listen<any>("index-complete", async (event) => {
     completed++;
     const folderName = event.payload.folder.split("/").filter(Boolean).pop();
     reindexBtn.textContent = `✓ ${folderName} (${completed}/${total})`;
@@ -1345,25 +1345,29 @@ reindexBtn.addEventListener("click", async () => {
 
       statIndexedFiles.textContent   = formatted;
       statIndexedFolders.textContent = stats.folders.toString();
-
-      // Update placeholder with new count
       searchInput.placeholder = `Search across ${formatted} files...`;
+      indexBtn.textContent = `🟢 ${formatted} files ▾`;
 
-      indexBtn.textContent   = `🟢 ${formatted} files ▾`;
-      reindexBtn.textContent = `✓ ${formatted} files indexed`;
-      reindexBtn.style.opacity = "1";
+      reindexBtn.textContent       = `✓ All ${total} folders indexed`;
+      reindexBtn.style.opacity     = "1";
+      reindexBtn.style.background  = "rgba(16,185,129,0.15)";
+      reindexBtn.style.borderColor = "rgba(16,185,129,0.3)";
+      reindexBtn.style.color       = "#6ee7b7";
 
       setTimeout(() => {
-        reindexBtn.textContent = "⟳ Rebuild Index";
-        indexBtn.textContent   = "Index ▾";
+        reindexBtn.textContent       = "⟳ Rebuild Index";
+        reindexBtn.style.background  = "";
+        reindexBtn.style.borderColor = "";
+        reindexBtn.style.color       = "";
+        indexBtn.textContent         = "Index ▾";
       }, 5000);
     }
   });
 
-  // Fire all indexing in parallel — non-blocking
-  folders.forEach(folder => {
+  // Fire sequentially
+  for (const folder of folders) {
     invoke("index_folder", { folderPath: folder.path }).catch(console.error);
-  });
+  }
 });
 
 // ── Auto-index when folder is added ──
@@ -1386,8 +1390,13 @@ async function updateSearchPlaceholder(): Promise<void> {
     if (stats.files > 0) {
       const formatted = stats.files.toLocaleString();
       searchInput.placeholder = `Search across ${formatted} files...`;
-      statIndexedFiles.textContent   = stats.files.toLocaleString();
+      statIndexedFiles.textContent   = formatted;
       statIndexedFolders.textContent = stats.folders.toString();
     }
+    // Show total folders tracked
+    const totalFolders = document.getElementById("stat-total-folders");
+    const totalFiles   = document.getElementById("stat-total-files");
+    if (totalFolders) totalFolders.textContent = folders.length.toString();
+    if (totalFiles)   totalFiles.textContent   = "all text files";
   } catch {}
 }

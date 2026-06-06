@@ -70,27 +70,94 @@ fn open_db() -> Result<Connection, String> {
         );
     ").map_err(|e| e.to_string())?;
 
+    // Performance optimizations
+    conn.execute_batch("
+        PRAGMA journal_mode=WAL;
+        PRAGMA synchronous=NORMAL;
+        PRAGMA cache_size=10000;
+    ").map_err(|e| e.to_string())?;
+
     Ok(conn)
 }
 
-// ── Indexable extensions ──
-fn is_indexable(ext: &str) -> bool {
+// ── Skip these folder names entirely ──
+fn is_tier1(ext: &str) -> bool {
     matches!(ext,
-        "txt" | "md" | "markdown" | "json" |
-        "rs"  | "ts" | "js" | "py" | "swift" |
-        "css" | "html" | "xml" | "yaml" | "yml" |
-        "toml" | "sh" | "bash" | "csv"
+        "pdf" | "docx" | "pptx" | "xlsx" |
+        "odt" | "rtf" | "txt" | "md" | "markdown" | "csv"
     )
 }
 
-// ── Index a folder (non-blocking) ──
+fn is_tier2(ext: &str) -> bool {
+    matches!(ext,
+        "json" | "xml" | "yaml" | "yml" | "toml" |
+        "html" | "css" | "js" | "ts" | "py" |
+        "rs" | "swift" | "java" | "c" | "cpp" |
+        "sh" | "bash" | "log"
+    )
+}
+
+fn is_indexable(ext: &str) -> bool {
+    is_tier1(ext) || is_tier2(ext)
+}
+
+fn max_file_size_bytes(ext: &str) -> u64 {
+    if is_tier1(ext) {
+        match ext {
+            "pdf" | "docx" | "pptx"  => 104_857_600,
+            "xlsx" | "odt"           => 52_428_800,
+            "rtf"                    => 26_214_400,
+            "txt" | "md" | "markdown"=> 20_971_520,
+            "csv"                    => 10_485_760,
+            _                        => 20_971_520,
+        }
+    } else {
+        match ext {
+            "json" | "xml" | "html"  => 2_097_152,
+            "yaml" | "yml" | "toml"  => 1_048_576,
+            "log"                    => 5_242_880,
+            _                        => 512_000,
+        }
+    }
+}
+
+fn max_content_bytes(ext: &str) -> usize {
+    if is_tier1(ext) { 1_048_576 } else { 204_800 }
+}
+
+fn should_skip_dir(name: &str) -> bool {
+    matches!(name,
+        "node_modules" | ".git" | "target" | "dist" |
+        "build" | "vendor" | ".cache" | "npm-cache" |
+        ".next" | ".nuxt" | "__pycache__" | ".venv" |
+        "venv" | ".tox" | "coverage" | ".nyc_output" |
+        ".gradle" | ".idea" | ".vscode" | "Pods" |
+        "DerivedData" | ".swiftpm" | ".terraform" |
+        "bower_components"
+    )
+}
+
+fn should_skip_file(name: &str, ext: &str) -> bool {
+    if name.contains(".min.js") || name.contains(".min.css") { return true; }
+    if ext == "map" { return true; }
+    if name.ends_with(".d.ts") { return true; }
+    if matches!(name,
+        "package-lock.json" | "yarn.lock" | "Cargo.lock" |
+        "Gemfile.lock" | "poetry.lock" | "pnpm-lock.yaml" |
+        "composer.lock"
+    ) { return true; }
+    false
+}
+
+// ── Index a folder (non-blocking, sequential) ──
 #[tauri::command]
 fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, String> {
     let path = folder_path.clone();
 
     std::thread::spawn(move || {
         let binding = get_db_lock();
-        let _lock = binding.lock().unwrap();
+        let _lock   = binding.lock().unwrap();
+
         let conn = match open_db() {
             Ok(c)  => c,
             Err(e) => {
@@ -99,14 +166,21 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
             }
         };
 
-        let mut indexed = 0;
-        let mut total   = 0;
+        let mut indexed = 0u64;
+        let mut total   = 0u64;
 
-        // Count total first for progress
+        // ── Count indexable files first ──
         for entry in WalkDir::new(&path)
             .follow_links(false)
-            .max_depth(5)
+            .max_depth(6)
             .into_iter()
+            .filter_entry(|e| {
+                if e.file_type().is_dir() {
+                    let name = e.file_name().to_str().unwrap_or("");
+                    return !should_skip_dir(name);
+                }
+                true
+            })
             .filter_map(|e| e.ok())
         {
             if entry.file_type().is_file() {
@@ -115,35 +189,97 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
                     .and_then(|e| e.to_str())
                     .unwrap_or("")
                     .to_lowercase();
-                if is_indexable(&ext) { total += 1; }
+                if is_indexable(&ext) {
+                    total += 1;
+                }
             }
         }
 
+        // ── Index files ──
         for entry in WalkDir::new(&path)
             .follow_links(false)
-            .max_depth(5)
+            .max_depth(6)
             .into_iter()
+            .filter_entry(|e| {
+                if e.file_type().is_dir() {
+                    let name = e.file_name().to_str().unwrap_or("");
+                    return !should_skip_dir(name);
+                }
+                true
+            })
             .filter_map(|e| e.ok())
         {
-            if !entry.file_type().is_file() { continue; }
+            if !entry.file_type().is_file() {
+                continue;
+            }
 
             let file_path = entry.path();
-            let ext = file_path.extension()
+            let ext = file_path
+                .extension()
                 .and_then(|e| e.to_str())
                 .unwrap_or("")
                 .to_lowercase();
 
-            if !is_indexable(&ext) { continue; }
+            if !is_indexable(&ext) {
+                continue;
+            }
 
-            let content = match std::fs::read_to_string(file_path) {
-                Ok(c)  => c,
-                Err(_) => continue,
+            let file_name = file_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("");
+
+            if should_skip_file(file_name, &ext) {
+                continue;
+            }
+            if should_skip_file(file_name, &ext) {
+                continue;
+            }
+
+            // Smart size limit by tier
+            if let Ok(metadata) = std::fs::metadata(file_path) {
+                if metadata.len() > max_file_size_bytes(&ext) {
+                    continue;
+                }
+            }
+
+            
+
+            let content = if ext == "pdf" {
+                // Extract PDF text via Swift PDFKit
+                let extractor = assets_dir().join("extract-pdf.swift");
+                let output = Command::new("swift")
+                    .arg(&extractor)
+                    .arg(file_path)
+                    .output();
+
+                match output {
+                    Ok(o) if o.status.success() => {
+                        String::from_utf8_lossy(&o.stdout).to_string()
+                    }
+                    _ => continue,
+                }
+            } else {
+                match std::fs::read_to_string(file_path) {
+                    Ok(c)  => c,
+                    Err(_) => continue,
+                }
             };
 
-            if content.trim().is_empty() { continue; }
+            if content.trim().is_empty() {
+                continue;
+            }
+
+            let limit = max_content_bytes(&ext);
+            let content = if content.len() > limit {
+                content[..limit].to_string()
+            } else {
+                content
+            };
 
             let path_str = file_path.to_string_lossy().to_string();
-            let name     = file_path.file_name()
+            let name     = file_path
+                .file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("")
                 .to_string();
@@ -155,27 +291,40 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
                 .map(|d| d.as_secs() as i64)
                 .unwrap_or(0);
 
+            // Skip if file hasn't changed since last index
+            let existing: Option<i64> = conn.query_row(
+                "SELECT modified FROM indexed_files WHERE path = ?1",
+                params![path_str],
+                |row| row.get(0),
+            ).ok();
+
+            if let Some(existing_modified) = existing {
+                if existing_modified >= modified {
+                    indexed += 1;
+                    continue; // Skip unchanged file
+                }
+            }
+
             let _ = conn.execute(
                 "INSERT OR REPLACE INTO indexed_files
                  (path, name, folder, extension, modified)
                  VALUES (?1, ?2, ?3, ?4, ?5)",
-                rusqlite::params![path_str, name, path, ext, modified],
+                params![path_str, name, path, ext, modified],
             );
 
             let _ = conn.execute(
                 "DELETE FROM file_content WHERE path = ?1",
-                rusqlite::params![path_str],
+                params![path_str],
             );
 
             let _ = conn.execute(
                 "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
-                rusqlite::params![path_str, content],
+                params![path_str, content],
             );
 
             indexed += 1;
 
-            // Emit progress every 10 files
-            if indexed % 10 == 0 {
+            if indexed % 20 == 0 {
                 let _ = app.emit("index-progress", serde_json::json!({
                     "folder":  path,
                     "indexed": indexed,
@@ -191,7 +340,7 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
         }));
     });
 
-    Ok("Indexing started in background".to_string())
+    Ok("Indexing started".to_string())
 }
 
 // ── Search ──
@@ -258,9 +407,25 @@ fn get_index_stats() -> Result<serde_json::Value, String> {
         |row| row.get(0),
     ).unwrap_or(0);
 
+    // Count PDFs separately
+    let pdf_count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM indexed_files WHERE extension = 'pdf'",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    // Get DB size
+    let db_size = std::fs::metadata(db_path())
+        .map(|m| m.len())
+        .unwrap_or(0);
+
+    let db_size_mb = db_size / 1_048_576;
+
     Ok(serde_json::json!({
-        "files":   file_count,
-        "folders": folder_count,
+        "files":     file_count,
+        "folders":   folder_count,
+        "pdfs":      pdf_count,
+        "db_size_mb": db_size_mb,
     }))
 }
 
@@ -341,7 +506,49 @@ fn reveal_in_finder(path: String) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
     Ok(())
 }
-    #[cfg_attr(mobile, tauri::mobile_entry_point)]
+// ── Vacuum database ──
+#[tauri::command]
+fn vacuum_db() -> Result<String, String> {
+    let conn = open_db()?;
+    conn.execute_batch("VACUUM;")
+        .map_err(|e| e.to_string())?;
+    let size = std::fs::metadata(db_path())
+        .map(|m| m.len() / 1_048_576)
+        .unwrap_or(0);
+    Ok(format!("Database optimized: {}MB", size))
+}
+
+// ── Find largest indexed files ──
+#[tauri::command]
+fn get_largest_files(limit: Option<i64>) -> Result<Vec<serde_json::Value>, String> {
+    let conn = open_db()?;
+    let limit = limit.unwrap_or(20);
+
+    let mut stmt = conn.prepare(
+        "SELECT f.name, f.extension, f.folder,
+                LENGTH(fc.content) as content_size
+         FROM indexed_files f
+         JOIN file_content fc ON fc.path = f.path
+         ORDER BY content_size DESC
+         LIMIT ?1"
+    ).map_err(|e| e.to_string())?;
+
+    let results: Vec<serde_json::Value> = stmt.query_map(
+        params![limit],
+        |row| Ok(serde_json::json!({
+            "name":      row.get::<_, String>(0)?,
+            "extension": row.get::<_, String>(1)?,
+            "folder":    row.get::<_, String>(2)?,
+            "size_kb":   row.get::<_, i64>(3)? / 1024,
+        }))
+    ).map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(results)
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
@@ -353,6 +560,8 @@ pub fn run() {
             get_index_stats,
             open_file,
             reveal_in_finder,
+            vacuum_db,
+            get_largest_files,
         ])
         .run(tauri::generate_context!())
         .expect("error while running HALO");

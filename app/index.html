@@ -45,11 +45,19 @@
       <div id="index-dropdown" class="hidden">
         <div class="index-stat-row">
           <span class="index-stat-label">Indexed files</span>
-          <span class="index-stat-value" id="stat-indexed-files">—</span>
+          <span class="index-stat-value">
+            <span id="stat-indexed-files">—</span>
+            <span style="color:var(--text-dim);font-weight:400"> / </span>
+            <span id="stat-total-files" style="color:var(--text-dim);font-weight:400">—</span>
+          </span>
         </div>
         <div class="index-stat-row">
           <span class="index-stat-label">Indexed folders</span>
-          <span class="index-stat-value" id="stat-indexed-folders">—</span>
+          <span class="index-stat-value">
+            <span id="stat-indexed-folders">—</span>
+            <span style="color:var(--text-dim);font-weight:400"> / </span>
+            <span id="stat-total-folders" style="color:var(--text-dim);font-weight:400">—</span>
+          </span>
         </div>
         <div class="index-divider"></div>
         <div class="index-setting">
