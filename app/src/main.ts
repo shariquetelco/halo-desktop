@@ -613,6 +613,107 @@ sidebarSearch.addEventListener("input", () => {
 addFolderBtn.addEventListener("click", addFolder);
 heroCta.addEventListener("click", addFolder);
 
+// ── Apply to Finder ──
+applyFinderBtn.addEventListener("click", () => {
+  if (!activeFolderPath) return;
+  const folder = folders.find(f => f.path === activeFolderPath);
+  if (!folder) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "picker-overlay";
+
+  const dialog = document.createElement("div");
+  dialog.style.cssText = `
+    background: #13131f;
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 28px;
+    width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+    animation: scale-in 150ms ease-out;
+  `;
+
+  dialog.innerHTML = `
+    <div style="font-size:24px;text-align:center;">🖥️</div>
+    <div style="font-size:16px;font-weight:700;color:#f0f0f8;text-align:center;">
+      Apply icon to Finder?
+    </div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.5);text-align:center;line-height:1.7;">
+      This will change the icon displayed in Finder for:<br>
+      <strong style="color:rgba(255,255,255,0.8);">${folder.name}</strong><br><br>
+      No files will be changed or deleted.<br>
+      The folder remains exactly as it is.
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button id="finder-cancel" style="
+        flex:1;padding:10px;
+        background:rgba(255,255,255,0.06);
+        border:1px solid rgba(255,255,255,0.1);
+        border-radius:10px;color:rgba(255,255,255,0.7);
+        font-size:13px;font-weight:500;
+        cursor:pointer;font-family:inherit;
+      ">Cancel</button>
+      <button id="finder-apply" style="
+        flex:1;padding:10px;
+        background:rgba(16,185,129,0.15);
+        border:1px solid rgba(16,185,129,0.3);
+        border-radius:10px;color:#6ee7b7;
+        font-size:13px;font-weight:600;
+        cursor:pointer;font-family:inherit;
+      ">Apply to Finder</button>
+    </div>
+    <div id="finder-status" style="
+      text-align:center;font-size:13px;
+      color:rgba(255,255,255,0.4);
+      display:none;
+    ">Applying...</div>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  const cancelBtn = dialog.querySelector("#finder-cancel") as HTMLButtonElement;
+  const applyBtn  = dialog.querySelector("#finder-apply") as HTMLButtonElement;
+  const status    = dialog.querySelector("#finder-status") as HTMLDivElement;
+
+  cancelBtn.addEventListener("click", () => {
+    document.body.removeChild(overlay);
+  });
+
+  applyBtn.addEventListener("click", async () => {
+    applyBtn.style.display  = "none";
+    cancelBtn.style.display = "none";
+    status.style.display    = "block";
+    status.textContent      = "Applying icon to Finder...";
+
+    const hexColor = folder.color.startsWith("linear-gradient")
+      ? (folder.color.match(/#([0-9a-fA-F]{6})/) || [])[1] || "6e56cf"
+      : folder.color.replace("#", "");
+
+    try {
+      await invoke<string>("apply_folder_icon", {
+        folderPath: folder.path,
+        emoji:      folder.icon,
+        hexColor:   hexColor,
+      });
+      status.style.color = "#6ee7b7";
+      status.textContent = "✓ Icon applied. Check Finder.";
+      setTimeout(() => { document.body.removeChild(overlay); }, 2000);
+    } catch (error) {
+      status.style.color = "#fca5a5";
+      status.textContent = `Error: ${error}`;
+      setTimeout(() => { document.body.removeChild(overlay); }, 3000);
+    }
+  });
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) document.body.removeChild(overlay);
+  });
+});
+
 // ── Change Icon ──
 changeIconBtn.addEventListener("click", () => {
   if (!activeFolderPath) return;
@@ -827,115 +928,6 @@ changeColorBtn.addEventListener("click", () => {
   document.body.appendChild(overlay);
 });
 
-// ── Apply to Finder ──
-applyFinderBtn.addEventListener("click", () => {
-  if (!activeFolderPath) return;
-
-  const folder = folders.find(f => f.path === activeFolderPath);
-  if (!folder) return;
-
-  // Safety confirmation
-  const overlay = document.createElement("div");
-  overlay.className = "picker-overlay";
-
-  const dialog = document.createElement("div");
-  dialog.style.cssText = `
-    background: #13131f;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 16px;
-    padding: 28px;
-    width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-shadow: 0 24px 64px rgba(0,0,0,0.6);
-    animation: scale-in 150ms ease-out;
-  `;
-
-  dialog.innerHTML = `
-    <div style="font-size:24px;text-align:center;">🖥️</div>
-    <div style="font-size:16px;font-weight:700;color:#f0f0f8;text-align:center;">
-      Apply icon to Finder?
-    </div>
-    <div style="font-size:13px;color:rgba(255,255,255,0.5);text-align:center;line-height:1.7;">
-      This will change the icon displayed in Finder for:<br>
-      <strong style="color:rgba(255,255,255,0.8);">${folder.name}</strong><br><br>
-      No files will be changed or deleted.<br>
-      The folder remains exactly as it is.
-    </div>
-    <div style="display:flex;gap:10px;margin-top:4px;">
-      <button id="finder-cancel" style="
-        flex:1;padding:10px;
-        background:rgba(255,255,255,0.06);
-        border:1px solid rgba(255,255,255,0.1);
-        border-radius:10px;color:rgba(255,255,255,0.7);
-        font-size:13px;font-weight:500;
-        cursor:pointer;font-family:inherit;
-      ">Cancel</button>
-      <button id="finder-apply" style="
-        flex:1;padding:10px;
-        background:rgba(16,185,129,0.15);
-        border:1px solid rgba(16,185,129,0.3);
-        border-radius:10px;color:#6ee7b7;
-        font-size:13px;font-weight:600;
-        cursor:pointer;font-family:inherit;
-      ">Apply to Finder</button>
-    </div>
-    <div id="finder-status" style="
-      text-align:center;font-size:13px;
-      color:rgba(255,255,255,0.4);
-      display:none;
-    ">Applying...</div>
-  `;
-
-  overlay.appendChild(dialog);
-  document.body.appendChild(overlay);
-
-  const cancelBtn = dialog.querySelector("#finder-cancel") as HTMLButtonElement;
-  const applyBtn  = dialog.querySelector("#finder-apply") as HTMLButtonElement;
-  const status    = dialog.querySelector("#finder-status") as HTMLDivElement;
-
-  cancelBtn.addEventListener("click", () => {
-    document.body.removeChild(overlay);
-  });
-
-  applyBtn.addEventListener("click", async () => {
-    applyBtn.style.display  = "none";
-    cancelBtn.style.display = "none";
-    status.style.display    = "block";
-    status.textContent      = "Applying icon to Finder...";
-
-    // Icon path — using test icon for Day 8
-    // Day 9: generate emoji PNG dynamically
-    const iconPath = "/Users/sharique/App_Shariq/HALO/assets/test-icon.png";
-
-    try {
-      const result = await invoke<string>("apply_finder_icon", {
-        folderPath: activeFolderPath,
-        iconPath:   iconPath,
-      });
-
-      status.style.color   = "#6ee7b7";
-      status.textContent   = "✓ Icon applied. Check Finder.";
-
-      setTimeout(() => {
-        document.body.removeChild(overlay);
-      }, 2000);
-
-    } catch (error) {
-      status.style.color = "#fca5a5";
-      status.textContent = `Error: ${error}`;
-      setTimeout(() => {
-        document.body.removeChild(overlay);
-      }, 3000);
-    }
-  });
-
-  overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) document.body.removeChild(overlay);
-  });
-});
-
 // ── Add Description ──
 addDescriptionBtn.addEventListener("click", () => {
   if (!activeFolderPath) return;
@@ -978,6 +970,7 @@ async function updateFolderIcon(path: string, icon: string): Promise<void> {
   await saveFolder(folders[index]);
   renderSidebar();
   showIdentityView(folders[index]);
+  syncFinderIcon(folders[index]);
 }
 
 // ── Update Color ──
@@ -988,6 +981,7 @@ async function updateFolderColor(path: string, color: string, colorVar: string):
   await saveFolder(folders[index]);
   showIdentityView(folders[index]);
   renderSidebar();
+  syncFinderIcon(folders[index]);
 }
 
 // ── Update Description ──
@@ -998,6 +992,71 @@ async function updateFolderDescription(path: string, description: string): Promi
   await saveFolder(folders[index]);
   showIdentityView(folders[index]);
 }
+// ── Sync Finder Icon ──
+// Called automatically after icon or color change.
+// Runs in background — never blocks the UI.
+async function syncFinderIcon(folder: FolderRecord): Promise<void> {
+  // Extract hex color from gradient or solid
+  let hexColor = folder.color;
+  if (hexColor.startsWith("linear-gradient")) {
+    // Extract first hex from gradient string
+    const match = hexColor.match(/#([0-9a-fA-F]{6})/);
+    hexColor = match ? match[1] : "6e56cf";
+  }
+  hexColor = hexColor.replace("#", "");
 
+  // Show sync status in header
+  showSyncStatus("syncing");
+
+  try {
+    await invoke<string>("apply_folder_icon", {
+      folderPath: folder.path,
+      emoji:      folder.icon,
+      hexColor:   hexColor,
+    });
+    showSyncStatus("success");
+  } catch (error) {
+    console.error("Finder sync error:", error);
+    showSyncStatus("error");
+  }
+}
+
+// ── Sync Status Indicator ──
+function showSyncStatus(status: "syncing" | "success" | "error"): void {
+  let indicator = document.getElementById("sync-status");
+
+  if (!indicator) {
+    indicator = document.createElement("div");
+    indicator.id = "sync-status";
+    indicator.style.cssText = `
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      transition: all 200ms ease;
+      font-family: inherit;
+    `;
+    headerActions.insertAdjacentElement("beforebegin", indicator);
+  }
+
+  if (status === "syncing") {
+    indicator.textContent = "⟳ Syncing Finder...";
+    indicator.style.color = "rgba(255,255,255,0.4)";
+    indicator.style.display = "block";
+  } else if (status === "success") {
+    indicator.textContent = "✓ Synced to Finder";
+    indicator.style.color = "#6ee7b7";
+    indicator.style.display = "block";
+    setTimeout(() => {
+      if (indicator) indicator.style.display = "none";
+    }, 3000);
+  } else {
+    indicator.textContent = "⚠ Sync failed";
+    indicator.style.color = "#fca5a5";
+    indicator.style.display = "block";
+    setTimeout(() => {
+      if (indicator) indicator.style.display = "none";
+    }, 4000);
+  }
+}
 // ── Start ──
 init();
