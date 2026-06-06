@@ -103,26 +103,30 @@ fn is_indexable(ext: &str) -> bool {
 
 fn max_file_size_bytes(ext: &str) -> u64 {
     if is_tier1(ext) {
-        match ext {
-            "pdf" | "docx" | "pptx"  => 104_857_600,
-            "xlsx" | "odt"           => 52_428_800,
-            "rtf"                    => 26_214_400,
-            "txt" | "md" | "markdown"=> 20_971_520,
-            "csv"                    => 10_485_760,
-            _                        => 20_971_520,
-        }
+        u64::MAX // No limit for Tier 1 — index everything
     } else {
+        // Tier 2 — conservative limits (often machine-generated)
         match ext {
-            "json" | "xml" | "html"  => 2_097_152,
-            "yaml" | "yml" | "toml"  => 1_048_576,
-            "log"                    => 5_242_880,
-            _                        => 512_000,
+            "json" | "xml" | "html"  => 2_097_152,  // 2MB
+            "yaml" | "yml" | "toml"  => 1_048_576,  // 1MB
+            "log"                    => 5_242_880,  // 5MB
+            _                        => 512_000,    // 500KB for code
         }
     }
 }
 
-fn max_content_bytes(ext: &str) -> usize {
-    if is_tier1(ext) { 1_048_576 } else { 204_800 }
+fn max_content_bytes(ext: &str, content_len: usize) -> usize {
+    if is_tier1(ext) {
+        // Store full text for small docs (< 5MB extracted)
+        // Store 25% for large docs (compression placeholder for V2)
+        if content_len <= 5_242_880 {
+            content_len // Full text
+        } else {
+            content_len / 4 // 25% of large documents
+        }
+    } else {
+        204_800 // 200KB for Tier 2
+    }
 }
 
 fn should_skip_dir(name: &str) -> bool {
@@ -270,7 +274,7 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
                 continue;
             }
 
-            let limit = max_content_bytes(&ext);
+            let limit = max_content_bytes(&ext, content.len());
             let content = if content.len() > limit {
                 content[..limit].to_string()
             } else {
