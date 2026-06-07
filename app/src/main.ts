@@ -1529,7 +1529,7 @@ async function setupWatcherEvents(): Promise<void> {
 // ── First-run welcome screen ──
 function checkFirstRun(): void {
   const welcomed = localStorage.getItem('halo-welcomed');
-  if (!welcomed) {
+  if (!welcomed && folders.length === 0) {
     const screen = document.getElementById('welcome-screen');
     if (screen) screen.classList.remove('hidden');
 
