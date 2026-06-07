@@ -1526,8 +1526,24 @@ async function setupWatcherEvents(): Promise<void> {
   });
 }
 
+// ── First-run welcome screen ──
+function checkFirstRun(): void {
+  const welcomed = localStorage.getItem('halo-welcomed');
+  if (!welcomed) {
+    const screen = document.getElementById('welcome-screen');
+    if (screen) screen.classList.remove('hidden');
+
+    const cta = document.getElementById('welcome-cta');
+    cta?.addEventListener('click', () => {
+      screen?.classList.add('hidden');
+      localStorage.setItem('halo-welcomed', 'true');
+    });
+  }
+}
+
 // ── Start ──
 init();
+checkFirstRun();
 
 // ── Boot watcher after folders load ──
 setTimeout(async () => {

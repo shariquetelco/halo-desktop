@@ -187,6 +187,50 @@
       </div>
     </div>
 
+    <!-- ── Welcome Screen ── -->
+    <div id="welcome-screen" class="hidden">
+      <div id="welcome-backdrop"></div>
+      <div id="welcome-modal">
+        <div id="welcome-logo">🌟</div>
+        <h1 id="welcome-title">Welcome to HALO</h1>
+        <p id="welcome-sub">Your folders deserve an identity.</p>
+
+        <div id="welcome-folders">
+          <div class="welcome-folder" style="--fc: rgba(124,106,247,0.25)">
+            <span class="wf-icon">🛰️</span>
+            <span class="wf-name">SATURN</span>
+            <span class="wf-cat">Energy &amp; Space</span>
+          </div>
+          <div class="welcome-folder" style="--fc: rgba(220,38,38,0.2)">
+            <span class="wf-icon">🔒</span>
+            <span class="wf-name">PROJECT NASA</span>
+            <span class="wf-cat">Security</span>
+          </div>
+          <div class="welcome-folder" style="--fc: rgba(202,138,4,0.2)">
+            <span class="wf-icon">📚</span>
+            <span class="wf-name">MBA </span>
+            <span class="wf-cat">Education</span>
+          </div>
+          <div class="welcome-folder" style="--fc: rgba(6,182,212,0.2)">
+            <span class="wf-icon">🚀</span>
+            <span class="wf-name">myRoute</span>
+            <span class="wf-cat">Projects</span>
+          </div>
+        </div>
+
+        <ol id="welcome-steps">
+          <li><span class="ws-num">①</span><span class="ws-text">Add a folder — HALO assigns an icon and color automatically</span></li>
+          <li><span class="ws-num">②</span><span class="ws-text">Add meaning with descriptions and relationships</span></li>
+          <li><span class="ws-num">③</span><span class="ws-text">HALO indexes everything in the background</span></li>
+          <li><span class="ws-num">④</span><span class="ws-text">Press <kbd class="welcome-kbd">⌥ Space</kbd> and search instantly</span></li>
+        </ol>
+
+        <p id="welcome-note">PDFs, DOCX, PPTX, XLSX and notes are indexed automatically.</p>
+
+        <button id="welcome-cta">🌟 Get Started</button>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
