@@ -665,6 +665,150 @@ fn get_largest_files(limit: Option<i64>) -> Result<Vec<serde_json::Value>, Strin
     Ok(results)
 }
 
+// ── Get macOS idle time in milliseconds via IOKit ──
+fn get_idle_time_ms() -> u64 {
+    let output = std::process::Command::new("bash")
+        .arg("-c")
+        .arg("ioreg -c IOHIDSystem | awk '/HIDIdleTime/ {print $NF/1000000; exit}'")
+        .output();
+
+    match output {
+        Ok(o) => {
+            let s = String::from_utf8_lossy(&o.stdout);
+            s.trim().parse::<f64>().unwrap_or(0.0) as u64
+        }
+        Err(_) => 0,
+    }
+}
+
+// ── Process a batch of file events ──
+fn process_file_batch(batch: &HashMap<String, String>, app: &tauri::AppHandle) {
+    let conn = match open_db() {
+        Ok(c)  => c,
+        Err(_) => return,
+    };
+
+    let mut activity: Vec<serde_json::Value> = Vec::new();
+
+    for (path_str, kind) in batch {
+        let path = std::path::Path::new(path_str);
+
+        if kind == "deleted" {
+            let _ = conn.execute(
+                "DELETE FROM indexed_files WHERE path = ?1",
+                params![path_str],
+            );
+            let _ = conn.execute(
+                "DELETE FROM file_content WHERE path = ?1",
+                params![path_str],
+            );
+            activity.push(serde_json::json!({
+                "path": path_str,
+                "action": "removed"
+            }));
+            continue;
+        }
+
+        let ext = path.extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+
+        if !is_indexable(&ext) { continue; }
+
+        let path_absolute = std::fs::canonicalize(path)
+            .unwrap_or_else(|_| path.to_path_buf());
+
+        let content = if ext == "pdf" {
+            let extractor = assets_dir().join("extract-pdf.swift");
+            match std::process::Command::new("swift")
+                .arg(&extractor).arg(&path_absolute).output() {
+                Ok(o) if o.status.success() =>
+                    String::from_utf8_lossy(&o.stdout).to_string(),
+                _ => continue,
+            }
+        } else if ext == "docx" {
+            let extractor = assets_dir().join("extract-docx.swift");
+            match std::process::Command::new("swift")
+                .arg(&extractor).arg(&path_absolute).output() {
+                Ok(o) if o.status.success() =>
+                    String::from_utf8_lossy(&o.stdout).to_string(),
+                _ => continue,
+            }
+        } else if ext == "pptx" {
+            let extractor = assets_dir().join("extract-pptx.swift");
+            match std::process::Command::new("swift")
+                .arg(&extractor).arg(&path_absolute).output() {
+                Ok(o) if o.status.success() =>
+                    String::from_utf8_lossy(&o.stdout).to_string(),
+                _ => continue,
+            }
+        } else if ext == "xlsx" {
+            let extractor = assets_dir().join("extract-xlsx.swift");
+            match std::process::Command::new("swift")
+                .arg(&extractor).arg(&path_absolute).output() {
+                Ok(o) if o.status.success() =>
+                    String::from_utf8_lossy(&o.stdout).to_string(),
+                _ => continue,
+            }
+        } else {
+            match std::fs::read_to_string(&path_absolute) {
+                Ok(c)  => c,
+                Err(_) => continue,
+            }
+        };
+
+        if content.trim().is_empty() { continue; }
+
+        let limit   = max_content_bytes(&ext, content.len());
+        let content = if content.len() > limit {
+            content[..limit].to_string()
+        } else { content };
+
+        let name = path.file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_string();
+
+        let folder = path.parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_default();
+
+        let modified = std::fs::metadata(path)
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0);
+
+        let name_tokens = name.replace(['-', '_', '.'], " ").to_lowercase();
+        let searchable  = format!("{} {}", name_tokens, content);
+
+        let _ = conn.execute(
+            "INSERT OR REPLACE INTO indexed_files
+             (path, name, folder, extension, modified)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![path_str, name, folder, ext, modified],
+        );
+        let _ = conn.execute(
+            "DELETE FROM file_content WHERE path = ?1",
+            params![path_str],
+        );
+        let _ = conn.execute(
+            "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
+            params![path_str, searchable],
+        );
+
+        activity.push(serde_json::json!({
+            "path": path_str,
+            "name": name,
+            "action": kind
+        }));
+    }
+
+    let _ = app.emit("watcher-activity", activity);
+}
+
 // ── File watcher ──
 #[tauri::command]
 fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(), String> {
@@ -730,6 +874,47 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
         // Keep watcher alive — must not be dropped
         let _watcher = watcher;
 
+        // Idle queue for large batches
+        let idle_queue: Arc<Mutex<HashMap<String, String>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let idle_queue_clone = idle_queue.clone();
+        let app_idle = app_clone.clone();
+
+        // Idle detection thread — checks every 10 seconds
+        std::thread::spawn(move || {
+            loop {
+                std::thread::sleep(Duration::from_secs(10));
+
+                let queue_snapshot: HashMap<String, String> = {
+                    let map = idle_queue_clone.lock().unwrap();
+                    if map.is_empty() { continue; }
+                    map.clone()
+                };
+
+                // Check macOS idle time via IOKit
+                let idle_ms = get_idle_time_ms();
+                if idle_ms < 30_000 {
+                    continue; // User is active, wait
+                }
+
+                // User idle 30s+ — process the queue
+                let _ = app_idle.emit("watcher-status", serde_json::json!({
+                    "status": "updating",
+                    "count": queue_snapshot.len()
+                }));
+
+                process_file_batch(&queue_snapshot, &app_idle);
+
+                // Clear processed items
+                let mut map = idle_queue_clone.lock().unwrap();
+                map.clear();
+
+                let _ = app_idle.emit("watcher-status", serde_json::json!({
+                    "status": "idle"
+                }));
+            }
+        });
+
         // Debounce loop — process pending every 3 seconds
         loop {
             std::thread::sleep(Duration::from_secs(3));
@@ -742,143 +927,28 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
                 snapshot
             };
 
-            let _ = app_clone.emit("watcher-status", serde_json::json!({
-                "status": "updating",
-                "count": batch.len()
-            }));
-
-            let conn = match open_db() {
-                Ok(c)  => c,
-                Err(_) => continue,
-            };
-
-            let mut activity: Vec<serde_json::Value> = Vec::new();
-
-            for (path_str, kind) in &batch {
-                let path = std::path::Path::new(path_str);
-
-                if kind == "deleted" {
-                    let _ = conn.execute(
-                        "DELETE FROM indexed_files WHERE path = ?1",
-                        params![path_str],
-                    );
-                    let _ = conn.execute(
-                        "DELETE FROM file_content WHERE path = ?1",
-                        params![path_str],
-                    );
-                    activity.push(serde_json::json!({
-                        "path": path_str,
-                        "action": "removed"
-                    }));
-                    continue;
+            // Small batch (≤10) → process immediately
+            // Large batch (>10) → queue for idle
+            if batch.len() <= 10 {
+                let _ = app_clone.emit("watcher-status", serde_json::json!({
+                    "status": "updating",
+                    "count": batch.len()
+                }));
+                process_file_batch(&batch, &app_clone);
+                let _ = app_clone.emit("watcher-status", serde_json::json!({
+                    "status": "idle"
+                }));
+            } else {
+                // Large batch — defer to idle queue
+                let mut queue = idle_queue.lock().unwrap();
+                for (k, v) in batch {
+                    queue.insert(k, v);
                 }
-
-                // created or modified — re-index
-                let ext = path.extension()
-                    .and_then(|e| e.to_str())
-                    .unwrap_or("")
-                    .to_lowercase();
-
-                if !is_indexable(&ext) { continue; }
-
-                let path_absolute = std::fs::canonicalize(path)
-                    .unwrap_or_else(|_| path.to_path_buf());
-
-                let content = if ext == "pdf" {
-                    let extractor = assets_dir().join("extract-pdf.swift");
-                    match std::process::Command::new("swift")
-                        .arg(&extractor).arg(&path_absolute).output() {
-                        Ok(o) if o.status.success() =>
-                            String::from_utf8_lossy(&o.stdout).to_string(),
-                        _ => continue,
-                    }
-                } else if ext == "docx" {
-                    let extractor = assets_dir().join("extract-docx.swift");
-                    match std::process::Command::new("swift")
-                        .arg(&extractor).arg(&path_absolute).output() {
-                        Ok(o) if o.status.success() =>
-                            String::from_utf8_lossy(&o.stdout).to_string(),
-                        _ => continue,
-                    }
-                } else if ext == "pptx" {
-                    let extractor = assets_dir().join("extract-pptx.swift");
-                    match std::process::Command::new("swift")
-                        .arg(&extractor).arg(&path_absolute).output() {
-                        Ok(o) if o.status.success() =>
-                            String::from_utf8_lossy(&o.stdout).to_string(),
-                        _ => continue,
-                    }
-                } else if ext == "xlsx" {
-                    let extractor = assets_dir().join("extract-xlsx.swift");
-                    match std::process::Command::new("swift")
-                        .arg(&extractor).arg(&path_absolute).output() {
-                        Ok(o) if o.status.success() =>
-                            String::from_utf8_lossy(&o.stdout).to_string(),
-                        _ => continue,
-                    }
-                } else {
-                    match std::fs::read_to_string(&path_absolute) {
-                        Ok(c)  => c,
-                        Err(_) => continue,
-                    }
-                };
-
-                if content.trim().is_empty() { continue; }
-
-                let limit   = max_content_bytes(&ext, content.len());
-                let content = if content.len() > limit {
-                    content[..limit].to_string()
-                } else { content };
-
-                let name = path.file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("")
-                    .to_string();
-
-                let folder = path.parent()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_default();
-
-                let modified = std::fs::metadata(path)
-                    .ok()
-                    .and_then(|m| m.modified().ok())
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_secs() as i64)
-                    .unwrap_or(0);
-
-                let _ = conn.execute(
-                    "INSERT OR REPLACE INTO indexed_files
-                     (path, name, folder, extension, modified)
-                     VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![path_str, name, folder, ext, modified],
-                );
-                let _ = conn.execute(
-                    "DELETE FROM file_content WHERE path = ?1",
-                    params![path_str],
-                );
-                // Tokenize filename for search
-                let name_tokens = name
-                    .replace(['-', '_', '.'], " ")
-                    .to_lowercase();
-
-                let searchable = format!("{} {}", name_tokens, content);
-
-                let _ = conn.execute(
-                    "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
-                    params![path_str, searchable],
-                );
-
-                activity.push(serde_json::json!({
-                    "path": path_str,
-                    "name": name,
-                    "action": kind
+                let _ = app_clone.emit("watcher-status", serde_json::json!({
+                    "status": "queued",
+                    "count": queue.len()
                 }));
             }
-
-            let _ = app_clone.emit("watcher-activity", activity);
-            let _ = app_clone.emit("watcher-status", serde_json::json!({
-                "status": "idle"
-            }));
         }
     });
 
