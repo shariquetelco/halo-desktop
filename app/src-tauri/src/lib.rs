@@ -913,10 +913,28 @@ fn hide_search_overlay(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+// ── Get indexed filenames for fuzzy suggestion ──
+#[tauri::command]
+fn get_indexed_names() -> Result<Vec<String>, String> {
+    let conn = open_db()?;
+    let mut stmt = conn.prepare(
+        "SELECT name FROM indexed_files"
+    ).map_err(|e| e.to_string())?;
+
+    let names: Vec<String> = stmt.query_map([], |row| {
+        row.get::<_, String>(0)
+    })
+    .map_err(|e| e.to_string())?
+    .filter_map(|r| r.ok())
+    .collect();
+
+    Ok(names)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     // Track last Command key press time for double-tap detection
-    let last_cmd_press: Arc<Mutex<Option<std::time::Instant>>> =
+    let _last_cmd_press: Arc<Mutex<Option<std::time::Instant>>> =
         Arc::new(Mutex::new(None));
 
     tauri::Builder::default()
@@ -966,6 +984,7 @@ pub fn run() {
             hide_search_overlay,
             show_main_window,
             start_file_watcher,
+            get_indexed_names,
         ])
         .run(tauri::generate_context!())
         .expect("error while running HALO");

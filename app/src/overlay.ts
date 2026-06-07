@@ -74,13 +74,42 @@ async function closeOverlay(): Promise<void> {
 }
 
 // ── Render results ──
-function renderResults(results: any[], elapsed: number): void {
+async function renderResults(results: any[], elapsed: number): Promise<void> {
   currentResults = results;
   selectedIndex  = -1;
   resultsEl.innerHTML = "";
 
   if (results.length === 0) {
-    resultsEl.innerHTML = `<div id="empty-state" style="padding:24px;color:rgba(255,255,255,0.2);text-align:center;font-size:13px;">No results found</div>`;
+    const suggestion = await getSuggestion(query);
+    if (suggestion && suggestion.toLowerCase() !== query.toLowerCase()) {
+      resultsEl.innerHTML = `
+        <div style="padding:32px 20px;text-align:center;">
+          <div style="font-size:13px;color:rgba(255,255,255,0.25);margin-bottom:12px;">
+            No results for <strong style="color:rgba(255,255,255,0.4)">"${query}"</strong>
+          </div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.2);margin-bottom:10px;">Did you mean:</div>
+          <button id="suggestion-btn" style="
+            background: rgba(124,106,247,0.12);
+            border: 1px solid rgba(124,106,247,0.3);
+            border-radius: 8px;
+            color: #a89ff9;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 8px 20px;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all 150ms ease;
+          ">${suggestion}</button>
+        </div>`;
+      const btn = document.getElementById("suggestion-btn");
+      btn?.addEventListener("click", () => {
+        searchInput.value = suggestion;
+        searchInput.dispatchEvent(new Event("input"));
+        searchInput.focus();
+      });
+    } else {
+      resultsEl.innerHTML = `<div style="padding:32px;color:rgba(255,255,255,0.2);text-align:center;font-size:13px;">No results found for <strong>"${query}"</strong></div>`;
+    }
     statTime.style.display = "none";
     return;
   }
@@ -169,7 +198,7 @@ searchInput.addEventListener("input", () => {
   const query = searchInput.value.trim();
   if (searchTimeout) clearTimeout(searchTimeout);
 
-  if (!query) {
+  if (!query || query.length < 2) {
     overlayEl.classList.remove("searching");
     resultsEl.innerHTML = `
       <div id="empty-state">
@@ -187,11 +216,12 @@ searchInput.addEventListener("input", () => {
   searchTimeout = setTimeout(async () => {
     const start = performance.now();
     try {
-      const results = await invoke<any[]>("search_files", { query, limit: 15 });
+      const results = await invoke<any[]>("search_files", { query, limit: 20 });
       const elapsed = (performance.now() - start) / 1000;
-      renderResults(results, elapsed);
-    } catch {
-      resultsEl.innerHTML = `<div id="empty-state" style="padding:24px;color:rgba(255,255,255,0.2);text-align:center;font-size:13px;">Index not ready yet — open HALO and rebuild index</div>`;
+      await renderResults(results, elapsed);
+    } catch (err) {
+      console.error("Search render error:", err);
+      resultsEl.innerHTML = `<div style="padding:24px;color:rgba(255,255,255,0.2);text-align:center;font-size:13px;">Something went wrong — check console</div>`;
     }
   }, 200);
 });
@@ -255,6 +285,63 @@ settingsBtn?.addEventListener("click", async () => {
   await closeOverlay();
 });
 
+// ── Levenshtein distance ──
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, (_, i) =>
+    Array.from({ length: n + 1 }, (_, j) => i === 0 ? j : j === 0 ? i : 0)
+  );
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i-1] === b[j-1]
+        ? dp[i-1][j-1]
+        : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    }
+  }
+  return dp[m][n];
+}
+
+// ── Cache indexed names for fuzzy ──
+let cachedTerms: Set<string> | null = null;
+
+async function getTerms(): Promise<Set<string>> {
+  if (cachedTerms) return cachedTerms;
+  const names: string[] = await invoke("get_indexed_names");
+  const terms = new Set<string>();
+  names.forEach(name => {
+    name.replace(/[-_.]/g, ' ')
+        .split(' ')
+        .forEach(t => { if (t.length > 2) terms.add(t.toLowerCase()); });
+  });
+  cachedTerms = terms;
+  return terms;
+}
+
+// ── Fuzzy suggestion when 0 results ──
+async function getSuggestion(query: string): Promise<string | null> {
+  try {
+    const terms = await getTerms();
+    const queryLower = query.toLowerCase();
+
+    // Find closest term
+    let bestTerm  = "";
+    let bestDist  = 999;
+
+    terms.forEach(term => {
+      const dist = levenshtein(queryLower, term);
+      if (dist < bestDist && dist <= 2) {
+        bestDist = dist;
+        bestTerm = term;
+      }
+    });
+
+    return bestTerm || null;
+  } catch {
+    return null;
+  }
+}
+
 // ── Init ──
 loadStats();
 setTimeout(() => searchInput.focus(), 100);
+setTimeout(() => getTerms(), 2000);

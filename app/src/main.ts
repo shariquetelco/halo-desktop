@@ -1259,7 +1259,7 @@ searchInput.addEventListener("input", () => {
 
   if (searchTimeout) clearTimeout(searchTimeout);
 
-  if (!query) {
+  if (!query || query.length < 2) {
     hideSearchView();
     return;
   }
