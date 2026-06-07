@@ -51,6 +51,78 @@
     }
 
     /* ── Navbar ── */
+    /* ── Promo Banner ── */
+    #promo-banner {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: linear-gradient(135deg, rgba(124,106,247,0.97), rgba(99,82,230,0.97));
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 100px;
+      padding: 12px 20px;
+      box-shadow: 0 8px 32px rgba(124,106,247,0.4);
+      font-size: 14px;
+      color: #fff;
+      white-space: nowrap;
+      animation: banner-in 0.5s ease-out 1s both;
+    }
+
+    @keyframes banner-in {
+      from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+      to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
+    #promo-banner.hidden { display: none; }
+
+    #promo-code {
+      background: rgba(255,255,255,0.2);
+      border-radius: 6px;
+      padding: 2px 8px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+
+    #promo-cta {
+      background: #fff;
+      color: #7c6af7;
+      border: none;
+      border-radius: 100px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    #promo-cta:hover {
+      background: #f0eeff;
+      transform: translateY(-1px);
+    }
+
+    #promo-close {
+      background: rgba(255,255,255,0.15);
+      border: none;
+      border-radius: 50%;
+      width: 24px; height: 24px;
+      color: #fff;
+      font-size: 11px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    #promo-close:hover { background: rgba(255,255,255,0.25); }
+
     nav {
       position: fixed;
       top: 0; left: 0; right: 0;
@@ -1041,6 +1113,13 @@
 </head>
 <body>
 
+<!-- ── Promo Banner ── -->
+<div id="promo-banner">
+  <span>🎉 Early Access — <strong>50% off</strong> with code <span id="promo-code">HALOPRO</span></span>
+  <a href="https://buy.stripe.com/5kQ28qaws9Cl4ps6GMb3q00" target="_blank" id="promo-cta">Get Pro for €9.99 →</a>
+  <button id="promo-close">✕</button>
+</div>
+
 <!-- Mouse Spotlight -->
 <div id="spotlight"></div>
 
@@ -1069,7 +1148,6 @@
   <div class="hero-content">
     <div style="display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:32px;">
       <span class="hero-greeting" id="greeting">🌟 Early Access — macOS First</span>
-      <span class="hero-badge">✓ Free during Early Access</span>
     </div>
 
     <h1 class="hero-title">
@@ -1580,7 +1658,12 @@
 </footer>
 
 <script>
-  // ── Greeting ──
+  // ── Promo banner ──
+document.getElementById('promo-close')?.addEventListener('click', () => {
+  document.getElementById('promo-banner')?.classList.add('hidden');
+});
+
+// ── Greeting ──
   function setGreeting() {
     const h = new Date().getHours();
     const greetings = [
@@ -1593,7 +1676,7 @@
     const g = greetings.find(g => h >= g.range[0] && h < g.range[1]);
     if (g) {
       const el = document.getElementById('greeting');
-      if (el) el.textContent = g.text + ' — HALO Early Access';
+      if (el) el.textContent = g.text + ' — Welcome to HALO';
     }
   }
   setGreeting();
