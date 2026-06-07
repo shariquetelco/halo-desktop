@@ -433,8 +433,8 @@ fn search_files(query: String, limit: Option<i64>) -> Result<Vec<serde_json::Val
     let mut stmt = conn.prepare(sql)
         .map_err(|e| e.to_string())?;
 
-    let results: Vec<serde_json::Value> = stmt.query_map(
-        params![prefix_query, limit],
+    let all_results: Vec<serde_json::Value> = stmt.query_map(
+        params![prefix_query, limit * 3],
         |row| {
             Ok(serde_json::json!({
                 "path":      row.get::<_, String>(0)?,
@@ -448,6 +448,38 @@ fn search_files(query: String, limit: Option<i64>) -> Result<Vec<serde_json::Val
     .map_err(|e| e.to_string())?
     .filter_map(|r| r.ok())
     .collect();
+
+    // ── Filename-first ranking ──
+    // Score: filename contains query word = 2pts, starts with = 3pts, content only = 0pts
+    let query_lower = query.to_lowercase();
+    let query_words: Vec<&str> = query_lower.split_whitespace().collect();
+
+    let mut scored: Vec<(i32, serde_json::Value)> = all_results
+        .into_iter()
+        .map(|r| {
+            let name = r["name"].as_str().unwrap_or("").to_lowercase();
+            let name_no_ext = name.rsplit_once('.').map(|(n, _)| n).unwrap_or(&name);
+
+            let score = query_words.iter().map(|word| {
+                let w: &str = word;
+                if name_no_ext.starts_with(w) { 3 }
+                else if name_no_ext.contains(w) { 2 }
+                else if name.contains(w) { 1 }
+                else { 0 }
+            }).sum::<i32>();
+
+            (score, r)
+        })
+        .collect();
+
+    // Sort: highest score first, then preserve FTS rank order
+    scored.sort_by(|a, b| b.0.cmp(&a.0));
+
+    let results: Vec<serde_json::Value> = scored
+        .into_iter()
+        .map(|(_, r)| r)
+        .take(limit as usize)
+        .collect();
 
     Ok(results)
 }
