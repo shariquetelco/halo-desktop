@@ -872,13 +872,14 @@ pub fn run() {
                 let shortcut_str = shortcut.to_string();
 
                 // Detect double-tap on Meta (Command) key
-                // Toggle overlay on ⌘+Shift+Space
                 if shortcut_str.contains("Space") {
                     if let Some(overlay) = app.get_webview_window("search-overlay") {
                         let visible = overlay.is_visible().unwrap_or(false);
                         if visible {
                             let _ = overlay.hide();
                         } else {
+                            let _ = overlay.center();
+
                             let _ = overlay.show();
                             let _ = overlay.set_focus();
                         }
