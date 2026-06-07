@@ -364,9 +364,17 @@ fn index_folder(folder_path: String, app: tauri::AppHandle) -> Result<String, St
                 params![path_str],
             );
 
+            // Tokenize filename: split on - _ . and spaces
+            let name_tokens = name
+                .replace(['-', '_', '.'], " ")
+                .to_lowercase();
+
+            // Combine filename tokens + file content for FTS
+            let searchable = format!("{} {}", name_tokens, content);
+
             let _ = conn.execute(
                 "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
-                params![path_str, content],
+                params![path_str, searchable],
             );
 
             indexed += 1;
@@ -415,11 +423,18 @@ fn search_files(query: String, limit: Option<i64>) -> Result<Vec<serde_json::Val
         LIMIT ?2
     ";
 
+    // Build prefix query: each word gets a * suffix for type-ahead
+    let prefix_query = query
+        .split_whitespace()
+        .map(|w| format!("{}*", w))
+        .collect::<Vec<_>>()
+        .join(" ");
+
     let mut stmt = conn.prepare(sql)
         .map_err(|e| e.to_string())?;
 
     let results: Vec<serde_json::Value> = stmt.query_map(
-        params![query, limit],
+        params![prefix_query, limit],
         |row| {
             Ok(serde_json::json!({
                 "path":      row.get::<_, String>(0)?,
@@ -680,6 +695,9 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
             "folders": folders.len()
         }));
 
+        // Keep watcher alive — must not be dropped
+        let _watcher = watcher;
+
         // Debounce loop — process pending every 3 seconds
         loop {
             std::thread::sleep(Duration::from_secs(3));
@@ -731,10 +749,13 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
 
                 if !is_indexable(&ext) { continue; }
 
+                let path_absolute = std::fs::canonicalize(path)
+                    .unwrap_or_else(|_| path.to_path_buf());
+
                 let content = if ext == "pdf" {
                     let extractor = assets_dir().join("extract-pdf.swift");
                     match std::process::Command::new("swift")
-                        .arg(&extractor).arg(path).output() {
+                        .arg(&extractor).arg(&path_absolute).output() {
                         Ok(o) if o.status.success() =>
                             String::from_utf8_lossy(&o.stdout).to_string(),
                         _ => continue,
@@ -742,7 +763,7 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
                 } else if ext == "docx" {
                     let extractor = assets_dir().join("extract-docx.swift");
                     match std::process::Command::new("swift")
-                        .arg(&extractor).arg(path).output() {
+                        .arg(&extractor).arg(&path_absolute).output() {
                         Ok(o) if o.status.success() =>
                             String::from_utf8_lossy(&o.stdout).to_string(),
                         _ => continue,
@@ -750,7 +771,7 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
                 } else if ext == "pptx" {
                     let extractor = assets_dir().join("extract-pptx.swift");
                     match std::process::Command::new("swift")
-                        .arg(&extractor).arg(path).output() {
+                        .arg(&extractor).arg(&path_absolute).output() {
                         Ok(o) if o.status.success() =>
                             String::from_utf8_lossy(&o.stdout).to_string(),
                         _ => continue,
@@ -758,13 +779,13 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
                 } else if ext == "xlsx" {
                     let extractor = assets_dir().join("extract-xlsx.swift");
                     match std::process::Command::new("swift")
-                        .arg(&extractor).arg(path).output() {
+                        .arg(&extractor).arg(&path_absolute).output() {
                         Ok(o) if o.status.success() =>
                             String::from_utf8_lossy(&o.stdout).to_string(),
                         _ => continue,
                     }
                 } else {
-                    match std::fs::read_to_string(path) {
+                    match std::fs::read_to_string(&path_absolute) {
                         Ok(c)  => c,
                         Err(_) => continue,
                     }
@@ -803,9 +824,16 @@ fn start_file_watcher(folders: Vec<String>, app: tauri::AppHandle) -> Result<(),
                     "DELETE FROM file_content WHERE path = ?1",
                     params![path_str],
                 );
+                // Tokenize filename for search
+                let name_tokens = name
+                    .replace(['-', '_', '.'], " ")
+                    .to_lowercase();
+
+                let searchable = format!("{} {}", name_tokens, content);
+
                 let _ = conn.execute(
                     "INSERT INTO file_content (path, content) VALUES (?1, ?2)",
-                    params![path_str, content],
+                    params![path_str, searchable],
                 );
 
                 activity.push(serde_json::json!({
